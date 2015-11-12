@@ -3,7 +3,7 @@
 
 #include <gpio.h>
 
-#define DEFAULT_AP_SSID_PRE	  "SensorX_"
+#define DEFAULT_NAME_PRE	  "SensorX_"
 
 #define MSG_OK				"OK\r\n"
 #define MSG_ERROR			"ERROR\r\n"
@@ -20,7 +20,7 @@ typedef struct config_cmds {
 
 
 void config_parse(server_conn_data *conn, char *buf, int len);
-void config_ap(void);
+void config_sensorx(void);
 void config_gpio(void);
 
 #endif /* __CONFIG_H__ */

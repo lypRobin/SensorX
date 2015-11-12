@@ -65,17 +65,17 @@ extern UartDevice    UartDev;
 void user_init(void)
 {
 	// set flash and uart
+	config_sensorx();
 	flash_param_t *flash_param;
-	flash_param_init();
 	flash_param = flash_param_get();
-	UartDev.data_bits = EIGHT_BITS;
-	UartDev.parity = NONE_BITS;
-	UartDev.stop_bits = ONE_STOP_BIT;
-	uart_init(BIT_RATE_115200, BIT_RATE_115200);
+	UartDev.data_bits = GETUART_DATABITS(flash_param->uartconf0);
+	UartDev.parity = GETUART_PARITYMODE(flash_param->uartconf0);
+	UartDev.stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
+	uart_init(flash_param->baud, BIT_RATE_115200);
 
 	server_init(flash_param->port);
 	config_gpio();
-	config_ap();
+	
 
 	uint8_t i = 0;
 	for (i = 0; i < 16; ++i)

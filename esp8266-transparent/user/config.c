@@ -21,7 +21,13 @@ void config_cmd_sta(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]);
+void config_cmd_sta_hostname(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_master_ip(server_conn_data *conn, uint8_t argc, char *argv[]);
+void config_cmd_restore(server_conn_data *conn, uint8_t argc, char *argv[]);
+
+void config_default_ap(bool restore);
+void config_default_sta_hostname(bool restore);
+void config_default_flash_param(bool restore);
 int check_ip_validation(const char *str);
 
 const config_commands_t config_commands[] = {
@@ -33,6 +39,8 @@ const config_commands_t config_commands[] = {
 		{ "AP", &config_cmd_ap },
 		{ "FLASH", &config_cmd_flash },
 		{ "GPIO2", &config_cmd_gpio2 },
+		{ "RESTORE", &config_cmd_restore},
+		{ "STAHOSTNAME", &config_cmd_sta_hostname},
 		{ "STAIP", &config_cmd_sta_ip }, // set sta ip address
 		{ "STATUS", &config_cmd_status }, // get current status including baud, port, sta ip, sta ssid, ap ip, ap ssid and mode.
 		{ "MASTER_IP", &config_cmd_master_ip }, // set master ip address
@@ -52,6 +60,17 @@ void config_gpio(void) {
 
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	espbuff_send_string(conn, MSG_OK);
+	system_restart();
+}
+
+void config_cmd_restore(server_conn_data *conn, uint8_t argc, char *argv[]){
+	bool restore = true;
+	config_default_ap(restore);
+	config_default_sta_hostname(restore);
+	config_default_flash_param(restore);
+
+	espbuff_send_string(conn, MSG_OK);
+	os_delay_us(10000);
 	system_restart();
 }
 
@@ -202,11 +221,6 @@ void config_cmd_port(server_conn_data *conn, uint8_t argc, char *argv[]) {
 			}
 		}
 	}
-	// debug
-	{
-		espbuff_send_printf(conn, "flash param:\n\tmagic\t%d\n\tversion\t%d\n\tbaud\t%d\n\tport\t%d\n",
-			flash_param->magic, flash_param->version, flash_param->baud, flash_param->port);
-	}
 }
 
 void config_cmd_mode(server_conn_data *conn, uint8_t argc, char *argv[]) {
@@ -312,9 +326,9 @@ void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 		char tmp[64];
 		if(sta_ip.ip.addr == 0){
 		    espbuff_send_string(conn, "SensorX is not connected to AP\r\n");
-		    return;
+		    //return;
 		}else{
-			os_sprintf(tmp, "\"%d.%d.%d.%d\"\r\n", IP2STR(&sta_ip.ip));
+			os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&sta_ip.ip));
 			espbuff_send_printf(conn, "STA IP=%s\r\n", tmp);  // get sta ip
 			struct station_config sta_conf;
 			wifi_station_get_config(&sta_conf);
@@ -322,12 +336,17 @@ void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 		}
 		struct softap_config ap_conf;
 		wifi_softap_get_config(&ap_conf);
-		os_sprintf(tmp, "\"%d.%d.%d.%d\"\r\n", IP2STR(&ap_ip.ip));
+		os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&ap_ip.ip));
 		espbuff_send_printf(conn, "AP IP=%s\r\n", tmp);  // get ap ip
 
 		flash_param_t *flash_param  = flash_param_get();
+		UartBitsNum4Char data_bits = GETUART_DATABITS(flash_param->uartconf0);
+		UartParityMode parity = GETUART_PARITYMODE(flash_param->uartconf0);
+		UartStopBitsNum stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
+		const char *stopbits[4] = { "?", "1", "1.5", "2" };
+		const char *paritymodes[4] = { "E", "O", "N", "?" };
 		espbuff_send_printf(conn, "MASTER IP ADDRESS=%s\r\n",flash_param->master_ip); // get master ip
-		espbuff_send_printf(conn, "BAUD=%d.\r\n", flash_param->baud); // get baud rate
+		espbuff_send_printf(conn, "Seiral Info=%d %d %s %s\r\n", flash_param->baud, data_bits + 5, paritymodes[parity], stopbits[stop_bits]); // get baud rate
 		espbuff_send_string(conn, MSG_OK);
 	}
 	else{
@@ -373,32 +392,61 @@ int check_ip_validation(const char *str){
 	return 0;
 }
 
+void config_cmd_sta_hostname(server_conn_data *conn, uint8_t argc, char *argv[]){
+	if(argc == 0){
+		char sta_hostname[32];
+		os_strcpy(sta_hostname, wifi_station_get_hostname());
+		espbuff_send_printf(conn, "STATION HOSTNAME=%s\r\n"MSG_OK, sta_hostname);
+	}
+	else if(argc > 1){
+		espbuff_send_string(conn, "+++AT STAIP Invalid IP Address.\t\n");
+		espbuff_send_string(conn, MSG_ERROR);	
+		return;
+	}
+	else{ // argc == 1
+		if(os_strlen(argv[1]) > 32){
+			espbuff_send_string(conn, "STATION HOSTNAME TOO LONG.\r\n"MSG_ERROR);
+			return;
+		}
+		else{
+			if(wifi_station_set_hostname(argv[1]))
+				espbuff_send_printf(conn, "SET STATION HOSTNAME=%s\r\n"MSG_OK, argv[1]);
+			else
+				espbuff_send_string(conn, MSG_ERROR);
+		}
+
+	}
+}
+
 void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
 	struct ip_info sta_ip;
 	char tmp[64];
 	wifi_get_ip_info(STATION_IF, &sta_ip);
 	
 	if(argc == 0){	
-		os_sprintf(tmp, "\"%d.%d.%d.%d\"\r\n", IP2STR(&sta_ip.ip));
-		espbuff_send_printf(conn, "STATION IP ADDREEE=%s\r\n"MSG_OK, tmp);
+		os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&sta_ip.ip));
+		espbuff_send_printf(conn, "STATION IP ADDRESS=%s\r\n"MSG_OK, tmp);
 	}
 	else if(argc == 1){
 		if(check_ip_validation(argv[1]) < 0){
-			espbuff_send_string(conn, MSG_ERROR);
 			espbuff_send_string(conn, "+++AT STAIP Invalid IP Address.\t\n");
+			espbuff_send_string(conn, MSG_ERROR);
 			return;
 		}
 		else{
+			wifi_station_dhcpc_stop();
 			sta_ip.ip.addr = ipaddr_addr(argv[1]);
 			if(wifi_set_ip_info(STATION_IF, &sta_ip))
 				espbuff_send_string(conn, MSG_OK);
-			else
+			else{
 				espbuff_send_string(conn, MSG_ERROR);
+				wifi_station_dhcpc_start();
+			}
 		}
 	}
 	else{
-		espbuff_send_string(conn, MSG_ERROR);
 		espbuff_send_string(conn, "+++AT STAIP Invalid arguments");
+		espbuff_send_string(conn, MSG_ERROR);
 	}
 }
 
@@ -434,15 +482,12 @@ void config_cmd_master_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
 	}
 }
 
+void get_ap_mac_addr(char *mac_addr){
+	if(mac_addr == NULL)
+		return;
 
-void config_ap(void){
-	struct softap_config ap_conf;
-	os_bzero(&ap_conf, sizeof(struct softap_config));
-	wifi_softap_get_config(&ap_conf);
-
-	// get self ap mac address string
 	const char mac_char[] = "0123456789ABCDEF";
-	char ap_ssid[30], ap_mac_str[13];
+	char ap_mac_str[12];
 	uint8 ap_mac[6];
 	wifi_get_macaddr(SOFTAP_IF, ap_mac);
 
@@ -452,23 +497,43 @@ void config_ap(void){
 			ap_mac_str[i] = mac_char[ ap_mac[i/2] / 16 ];  // convert first 0x bit    
 		else
 			ap_mac_str[i] = mac_char[ ap_mac[i/2] % 16 ];	// convert second 0x bit
-	ap_mac_str[13] = '\0';
+	ap_mac_str[i] = '\0';
+	os_strcpy(mac_addr, ap_mac_str);
+}
 
-	char ori_ap_ssid[30];
-	os_strcpy(ori_ap_ssid, "ESP_");  
-	os_strcat(ori_ap_ssid, &ap_mac_str[6]); // original ap ssid "ESP_mac"
-	if(!os_strcmp(ap_conf.ssid, ori_ap_ssid)){ // if same as original ap ssid, change to SensorX_mac ssid
-		os_strcpy(ap_ssid, DEFAULT_AP_SSID_PRE);
-		os_strcat(ap_ssid, ap_mac_str);  // joint ap mac string
+void config_default_sta_hostname(bool restore){
+	char sta_hostname[32];
+	os_strcpy(sta_hostname, wifi_station_get_hostname());
+	if(!os_strncmp(sta_hostname, "ESP", 3) || !os_strncmp(sta_hostname, "esp", 3) || restore){
+		char ap_mac_str[32];
+		get_ap_mac_addr(ap_mac_str);
+		os_strcpy(sta_hostname, DEFAULT_NAME_PRE);
+		os_strcat(sta_hostname, ap_mac_str);
+		wifi_station_set_hostname(sta_hostname);
+	}
+}
+
+void config_default_ap(bool restore){
+	struct softap_config ap_conf;
+	os_bzero(&ap_conf, sizeof(struct softap_config));
+	wifi_softap_get_config(&ap_conf);
+
+	// get self ap mac address string
+	char ap_mac_str[32];
+	get_ap_mac_addr(ap_mac_str);
+
+	if(!os_strncmp(ap_conf.ssid, "ESP", 3) || !os_strncmp(ap_conf.ssid, "esp", 3) || restore){
+		os_bzero(ap_conf.ssid, sizeof(ap_conf.ssid));
+		os_strcpy(ap_conf.ssid, DEFAULT_NAME_PRE);
+		os_strcat(ap_conf.ssid, ap_mac_str);  // joint ap mac string
 
 		// set ap ssid
-		os_strncpy(ap_conf.ssid, ap_ssid, sizeof(ap_conf.ssid));
-		ap_conf.ssid_len = strlen(ap_ssid); 		//without set ssid_len, no connection to AP is possible
+		ap_conf.ssid_len = os_strlen(DEFAULT_NAME_PRE) + os_strlen(ap_mac_str); //without set ssid_len, no connection to AP is possible
 		os_bzero(ap_conf.password, sizeof(ap_conf.password));
 		ap_conf.authmode = 0;
 		ap_conf.channel = 1;
 		ETS_UART_INTR_DISABLE();
-		wifi_softap_set_config(&ap_conf);
+		wifi_softap_set_config(&ap_conf);  // set SensorX_mac ssid
 		ETS_UART_INTR_ENABLE();
 	}
 
@@ -478,11 +543,30 @@ void config_ap(void){
 	IP4_ADDR(&ap_ip.ip, 192, 168, 8, 1);
 	IP4_ADDR(&ap_ip.gw, 192, 168, 8, 1);
 	IP4_ADDR(&ap_ip.netmask, 255, 255, 255, 0);
-	wifi_set_ip_info(STATION_IF, &ap_ip);
+	wifi_set_ip_info(SOFTAP_IF, &ap_ip);
 	wifi_softap_dhcps_start();
-
 }
 
+void config_default_flash_param(bool restore){
+	struct softap_config ap_conf;
+	wifi_softap_get_config(&ap_conf);
+
+	if(!os_strncmp(ap_conf.ssid, "ESP", 3) || !os_strncmp(ap_conf.ssid, "esp", 3) || restore){
+		flash_param_t *flash_param = flash_param_get();
+		flash_param->baud = 115200;
+		flash_param->port = 23;
+		os_strcpy(flash_param->master_ip, "");
+		flash_param->uartconf0 = CALC_UARTMODE(EIGHT_BITS, NONE_BITS, ONE_STOP_BIT);
+		flash_param_set();
+	}
+}
+
+void config_sensorx(void){
+	bool restore = false;
+	config_default_ap(restore);
+	config_default_sta_hostname(restore);
+	config_default_flash_param(restore);
+}
 
 char *string_save(char *str) {
 	if(str == NULL)

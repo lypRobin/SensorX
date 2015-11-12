@@ -1,12 +1,7 @@
 #ifndef __FLASH_PARAM_H__
 #define __FLASH_PARAM_H__
 
-#define FLASH_PARAM_MAGIC	8255
-#define FLASH_PARAM_VERSION	4
-
 typedef struct flash_param{
-	uint32_t magic;
-	uint32_t version;
 	uint32_t baud; 
 	uint16_t port;
 	uint8_t master_ip[20];
