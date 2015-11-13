@@ -1,3 +1,20 @@
+/*
+ * File	: server.c
+ * implementation file of esp8266 server.
+ * Copyright (C) 2015 - 2016, Yanpeng Li <lyp40293@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of version 3 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program.	If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdarg.h>
 #include "c_types.h"
 #include "user_interface.h"
@@ -29,21 +46,21 @@ static server_conn_data ICACHE_FLASH_ATTR *server_find_conn_data(void *arg) {
 
 
 //send all data in conn->txbuffer
-//returns result from espconn_sent if data in buffer or ESPCONN_OK (0)
+//returns result from espconn_send if data in buffer or ESPCONN_OK (0)
 //only internal used by espbuff_send, server_send_cb
 static sint8  ICACHE_FLASH_ATTR send_txbuffer(server_conn_data *conn) {
 	sint8 result = ESPCONN_OK;
 	if (conn->txbufferlen != 0)	{
 		conn->readytosend = false;
-		result= espconn_sent(conn->conn, (uint8_t*)conn->txbuffer, conn->txbufferlen);
+		result= espconn_send(conn->conn, (uint8_t*)conn->txbuffer, conn->txbufferlen);
 		conn->txbufferlen = 0;	
 		if (result != ESPCONN_OK)
-			os_printf("send_txbuffer: espconn_sent error %d on conn %p\n", result, conn);
+			os_printf("send_txbuffer: espconn_send error %d on conn %p\n", result, conn);
 	}
 	return result;
 }
 
-//send formatted output to transmit buffer and call send_txbuffer, if ready (previous espconn_sent is completed)
+//send formatted output to transmit buffer and call send_txbuffer, if ready (previous espconn_send is completed)
 sint8 ICACHE_FLASH_ATTR  espbuff_send_printf(server_conn_data *conn, const char *format, ...) {
 	uint16 len;
 	va_list al;
@@ -66,10 +83,10 @@ sint8 ICACHE_FLASH_ATTR espbuff_send_string(server_conn_data *conn, const char *
 	return espbuff_send(conn, data, strlen(data));
 }
 
-//use espbuff_send instead of espconn_sent
-//It solve problem: the next espconn_sent must after espconn_sent_callback of the pre-packet.
-//Add data to the send buffer and send if previous send was completed it call send_txbuffer and  espconn_sent
-//Returns ESPCONN_OK (0) for success, -128 if buffer is full or error from  espconn_sent
+//use espbuff_send instead of espconn_send
+//It solve problem: the next espconn_send must after espconn_send_callback of the pre-packet.
+//Add data to the send buffer and send if previous send was completed it call send_txbuffer and  espconn_send
+//Returns ESPCONN_OK (0) for success, -128 if buffer is full or error from  espconn_send
 sint8 ICACHE_FLASH_ATTR espbuff_send(server_conn_data *conn, const char *data, uint16 len) {
 	if (conn->txbufferlen + len > MAX_TXBUFFER) {
 		os_printf("espbuff_send: txbuffer full on conn %p\n", conn);

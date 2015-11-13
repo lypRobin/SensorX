@@ -1,7 +1,7 @@
 /*
  * File	: user_main.c
- * This file is part of Espressif's AT+ command set program.
- * Copyright (C) 2013 - 2016, Espressif Systems
+ * main file of the esp8266 transparent module.
+ * Copyright (C) 2015 - 2016, Yanpeng Li <lyp40293@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of version 3 of the GNU General Public License as
@@ -18,11 +18,11 @@
 #include "ets_sys.h"
 #include "os_type.h"
 #include "osapi.h"
-// #include "user_interface.h"
 #include "driver/uart.h"
 #include "task.h"
 
 #include "server.h"
+#include "client.h"
 #include "config.h"
 #include "flash_param.h"
 
@@ -73,7 +73,7 @@ void user_init(void)
 	UartDev.stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
 	uart_init(flash_param->baud, BIT_RATE_115200);
 
-	server_init(flash_param->port);
+	server_init(23);
 	config_gpio();
 	
 

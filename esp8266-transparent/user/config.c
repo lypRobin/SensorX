@@ -1,4 +1,21 @@
-// this is the normal build target ESP include set
+/*
+ * File	: config.c
+ * Implementation file of esp8266 configuerations including +++AT commands. 
+ * Copyright (C) 2015 - 2016, Yanpeng Li <lyp40293@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of version 3 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program.	If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <ets_sys.h>
 #include "c_types.h"
 #include "user_interface.h"
@@ -34,6 +51,7 @@ const config_commands_t config_commands[] = {
 		{ "RESET", &config_cmd_reset },
 		{ "BAUD", &config_cmd_baud },
 		{ "PORT", &config_cmd_port },
+		{ "REMOTE", &config_cmd_remote_server}, // config remote server ip and port when esp8266 as a client
 		{ "MODE", &config_cmd_mode },
 		{ "STA", &config_cmd_sta },   // 
 		{ "AP", &config_cmd_ap },
@@ -43,7 +61,6 @@ const config_commands_t config_commands[] = {
 		{ "STAHOSTNAME", &config_cmd_sta_hostname},
 		{ "STAIP", &config_cmd_sta_ip }, // set sta ip address
 		{ "STATUS", &config_cmd_status }, // get current status including baud, port, sta ip, sta ssid, ap ip, ap ssid and mode.
-		{ "MASTER_IP", &config_cmd_master_ip }, // set master ip address
 		{ NULL, NULL }
 	};
 
@@ -60,17 +77,6 @@ void config_gpio(void) {
 
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	espbuff_send_string(conn, MSG_OK);
-	system_restart();
-}
-
-void config_cmd_restore(server_conn_data *conn, uint8_t argc, char *argv[]){
-	bool restore = true;
-	config_default_ap(restore);
-	config_default_sta_hostname(restore);
-	config_default_flash_param(restore);
-
-	espbuff_send_string(conn, MSG_OK);
-	os_delay_us(10000);
 	system_restart();
 }
 
@@ -345,7 +351,7 @@ void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 		UartStopBitsNum stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
 		const char *stopbits[4] = { "?", "1", "1.5", "2" };
 		const char *paritymodes[4] = { "E", "O", "N", "?" };
-		espbuff_send_printf(conn, "MASTER IP ADDRESS=%s\r\n",flash_param->master_ip); // get master ip
+		espbuff_send_printf(conn, "MASTER IP ADDRESS=%d.%d.%d.%d\r\n", IP2STR(flash_param->remote_ip)); // get master ip
 		espbuff_send_printf(conn, "Seiral Info=%d %d %s %s\r\n", flash_param->baud, data_bits + 5, paritymodes[parity], stopbits[stop_bits]); // get baud rate
 		espbuff_send_string(conn, MSG_OK);
 	}
@@ -452,34 +458,45 @@ void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
 
 
 
-void config_cmd_master_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
+void config_cmd_remote_server(server_conn_data *conn, uint8_t argc, char *argv[]){
 	flash_param_t *flash_param  = flash_param_get();
 	if(argc == 0)
-		espbuff_send_printf(conn, "MASTER IP ADDRESS=%s\r\n"MSG_OK, flash_param->master_ip);
+		espbuff_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d\r\n"MSG_OK, IP2STR(flash_param->remote_ip), flash_param->remote_port);
 
-	if(argc > 1){
+	if(argc > 2){
 		espbuff_send_string(conn, MSG_ERROR);
-		espbuff_send_string(conn, "+++AT MASTER_IP Invalid arguments.\t\n");
+		espbuff_send_string(conn, "+++AT REMOTE Invalid arguments.\t\n");
 		return;
 	}
-	else if(argc == 1){
+	else{
 		if(check_ip_validation(argv[1]) < 0){
 			espbuff_send_string(conn, MSG_ERROR);
-			espbuff_send_string(conn, "+++AT MASTER_IP Invalid IP Address.\t\n");
+			espbuff_send_string(conn, "+++AT REMOTE Invalid IP Address.\t\n");
 			return;
 		}
-		else{
-			if(!os_strcmp((uint8_t*)argv[1], flash_param->master_ip))
-				espbuff_send_printf(conn, "MASTER IP ADDRESS=%s, NOT CHANGE.\r\n"MSG_OK, flash_param->master_ip);
-			else{
-				os_strcpy(flash_param->master_ip, (uint8_t*)argv[1]);
-				if (flash_param_set())
-					espbuff_send_printf(conn, "MASTER IP ADDRESS=%s.\r\n"MSG_OK, argv[1]);
-				else
-					espbuff_send_string(conn, MSG_ERROR);
+
+		// argc == 1
+		uint32 addr = ipaddr_addr(argv[1]);
+		flash_param->remote_ip = addr;
+			
+
+		if(argc == 2){
+			port = atoi(argv[2]);
+			if(port > 65535 || port < 0){
+				espbuff_send_printf(conn, "+++AT REMOTE Invalid remote port: %s\r\n"MSG_ERROR, argv[2]);
+				return;
 			}
+			else
+				flash_param->remote_port = port;
+
 		}
-	}
+
+		if (flash_param_set())
+			espbuff_send_printf(conn, "REMOTE IP ADDRESS=%s, PORT=%d\r\n"MSG_OK, argv[1], flash_param->remote_port);
+		else
+			espbuff_send_string(conn, "SET REMOTE IP "MSG_ERROR);
+	} 
+
 }
 
 void get_ap_mac_addr(char *mac_addr){
@@ -518,6 +535,7 @@ void config_default_ap(bool restore){
 	os_bzero(&ap_conf, sizeof(struct softap_config));
 	wifi_softap_get_config(&ap_conf);
 
+	wifi_set_opmode(STATIONAP_MODE);
 	// get self ap mac address string
 	char ap_mac_str[32];
 	get_ap_mac_addr(ap_mac_str);
@@ -555,11 +573,25 @@ void config_default_flash_param(bool restore){
 		flash_param_t *flash_param = flash_param_get();
 		flash_param->baud = 115200;
 		flash_param->port = 23;
-		os_strcpy(flash_param->master_ip, "");
+		flash_param->remote_port = 11311;
+		flash_param->remote_ip = IPADDR_NONE;
 		flash_param->uartconf0 = CALC_UARTMODE(EIGHT_BITS, NONE_BITS, ONE_STOP_BIT);
 		flash_param_set();
 	}
 }
+
+
+void config_cmd_restore(server_conn_data *conn, uint8_t argc, char *argv[]){
+	bool restore = true;
+	config_default_ap(restore);
+	config_default_sta_hostname(restore);
+	config_default_flash_param(restore);
+
+	espbuff_send_string(conn, MSG_OK);
+	os_delay_us(10000);
+	system_restart();
+}
+
 
 void config_sensorx(void){
 	bool restore = false;

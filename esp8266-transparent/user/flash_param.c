@@ -1,5 +1,22 @@
-#include "osapi.h"
+/*
+ * File	: flash_param.c
+ * Implementation file of esp8266 flash_param. 
+ * Copyright (C) 2015 - 2016, Yanpeng Li <lyp40293@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of version 3 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program.	If not, see <http://www.gnu.org/licenses/>.
+ */
 
+#include "osapi.h"
 #include "user_interface.h"
 #include "spi_flash.h"
 #include "ets_sys.h"
@@ -47,6 +64,8 @@ void ICACHE_FLASH_ATTR flash_param_init_defaults(void) {
 	flash_param_t *flash_param = flash_param_get();
 	flash_param->baud = 115200;
 	flash_param->port = 23;
+	flash_param->remote_port = 11311;
+	flash_param->remote_ip = IP_IPADDR_NONE;
 	flash_param->uartconf0 = CALC_UARTMODE(EIGHT_BITS, NONE_BITS, ONE_STOP_BIT);
 	flash_param_set();
 }
