@@ -25,20 +25,20 @@
 #include "server.h"
 #include "config.h"
 
-static struct espconn server_conn;
+static struct espconn server_espconn;
 static esp_tcp serverTcp;
 
 //Connection pool
 static char txbuffer[MAX_CONN][MAX_TXBUFFER];
-server_conn_data connect_data[MAX_CONN];
+server_conn_data server_conn[MAX_CONN];
 
 
 
 static server_conn_data ICACHE_FLASH_ATTR *server_find_conn_data(void *arg) {
 	int i;
 	for (i=0; i<MAX_CONN; i++) {
-		if (connect_data[i].conn==(struct espconn *)arg) 
-			return &connect_data[i];
+		if (server_conn[i].conn==(struct espconn *)arg) 
+			return &server_conn[i];
 	}
 	//os_printf("FindConnData: Huh? Couldn't find connection for %p\n", arg);
 	return NULL; //WtF?
@@ -131,9 +131,9 @@ static void ICACHE_FLASH_ATTR server_disconn_cb(void *arg) {
 	//Just look at all the sockets and kill the slot if needed.
 	int i;
 	for (i=0; i<MAX_CONN; i++) {
-		if (connect_data[i].conn!=NULL) {
-			if (connect_data[i].conn->state==ESPCONN_NONE || connect_data[i].conn->state==ESPCONN_CLOSE) {
-				connect_data[i].conn=NULL;
+		if (server_conn[i].conn!=NULL) {
+			if (server_conn[i].conn->state==ESPCONN_NONE || server_conn[i].conn->state==ESPCONN_CLOSE) {
+				server_conn[i].conn=NULL;
 			}
 		}
 	}
@@ -143,7 +143,7 @@ static void ICACHE_FLASH_ATTR server_connect_cb(void *arg) {
 	struct espconn *conn = arg;
 	int i;
 	//Find empty conndata in pool
-	for (i=0; i<MAX_CONN; i++) if (connect_data[i].conn==NULL) break;
+	for (i=0; i<MAX_CONN; i++) if (server_conn[i].conn==NULL) break;
 	os_printf("Con req, conn=%p, pool slot %d\n", conn, i);
 
 	if (i==MAX_CONN) {
@@ -151,9 +151,9 @@ static void ICACHE_FLASH_ATTR server_connect_cb(void *arg) {
 		espconn_disconnect(conn);
 		return;
 	}
-	connect_data[i].conn=conn;
-	connect_data[i].txbufferlen = 0;
-	connect_data[i].readytosend = true;
+	server_conn[i].conn=conn;
+	server_conn[i].txbufferlen = 0;
+	server_conn[i].readytosend = true;
 
 	espconn_regist_recvcb(conn, server_recv_cb);
 	espconn_regist_reconcb(conn, server_reconn_cb);
@@ -164,17 +164,17 @@ static void ICACHE_FLASH_ATTR server_connect_cb(void *arg) {
 void ICACHE_FLASH_ATTR server_init(int port) {
 	int i;
 	for (i = 0; i < MAX_CONN; i++) {
-		connect_data[i].conn = NULL;
-		connect_data[i].txbuffer = txbuffer[i];
-		connect_data[i].txbufferlen = 0;
-		connect_data[i].readytosend = true;
+		server_conn[i].conn = NULL;
+		server_conn[i].txbuffer = txbuffer[i];
+		server_conn[i].txbufferlen = 0;
+		server_conn[i].readytosend = true;
 	}
-	server_conn.type=ESPCONN_TCP;
-	server_conn.state=ESPCONN_NONE;
+	server_espconn.type=ESPCONN_TCP;
+	server_espconn.state=ESPCONN_NONE;
 	serverTcp.local_port=port;
-	server_conn.proto.tcp=&serverTcp;
+	server_espconn.proto.tcp=&serverTcp;
 
-	espconn_regist_connectcb(&server_conn, server_connect_cb);
-	espconn_accept(&server_conn);
-	espconn_regist_time(&server_conn, SERVER_TIMEOUT, 0);
+	espconn_regist_connectcb(&server_espconn, server_connect_cb);
+	espconn_accept(&server_espconn);
+	espconn_regist_time(&server_espconn, SERVER_TIMEOUT, 0);
 }

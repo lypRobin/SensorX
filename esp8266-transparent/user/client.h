@@ -23,13 +23,25 @@
 #include <c_types.h>
 #include <espconn.h>
 
-typedef struct espconn clientEspconn;
+#define CLIENT_TIMEOUT 28799
+
+//Max send buffer len
+#define MAX_CLIENT_TXBUFFER 1024
+
+typedef struct client_conn_data client_conn_data;
+
+struct client_conn_data {
+        struct espconn *conn;
+		char *txbuffer; //the buffer for the data to send
+		uint16  txbufferlen; //the length  of data in txbuffer
+ 		bool readytosend; //true, if txbuffer can send by espconn_send
+};
 
 void ICACHE_FLASH_ATTR client_init();
-void client_config(char *addr, int port);
-sint8  ICACHE_FLASH_ATTR espbuff_client_send(clientEspconn *conn, const char *data, uint16 len);
-sint8  ICACHE_FLASH_ATTR espbuff_client_send_string(clientEspconn *conn, const char *data);
-sint8  ICACHE_FLASH_ATTR espbuff_client_send_printf(clientEspconn *conn, const char *format, ...);
+void client_config(char *addr, uint32_t port);
+sint8  ICACHE_FLASH_ATTR espbuff_client_send(client_conn_data *conn, const char *data, uint16 len);
+sint8  ICACHE_FLASH_ATTR espbuff_client_send_string(client_conn_data *conn, const char *data);
+sint8  ICACHE_FLASH_ATTR espbuff_client_send_printf(client_conn_data *conn, const char *format, ...);
 
 
 #endif /* __CLIENT_H__ */

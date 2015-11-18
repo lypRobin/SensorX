@@ -27,7 +27,8 @@
 #include "flash_param.h"
 
 os_event_t	recv_task_queue[RECEIVE_TASK_QUEUE_LEN];
-extern  server_conn_data connect_data[MAX_CONN];
+extern  server_conn_data server_conn[MAX_CONN];
+extern client_conn_data client_conn;
 
 #define MAX_UARTBUFFER (MAX_TXBUFFER/4)
 static uint8 uartbuffer[MAX_UARTBUFFER];
@@ -42,9 +43,39 @@ static void ICACHE_FLASH_ATTR recv_task(os_event_t *events)
 		while ((READ_PERI_REG(UART_STATUS(UART0)) & (UART_RXFIFO_CNT << UART_RXFIFO_CNT_S)) && (length<MAX_UARTBUFFER))
 			uartbuffer[length++] = READ_PERI_REG(UART_FIFO(UART0)) & 0xFF;
 
+
+		if(length >= 4 && uartbuffer[0] == 'P' && uartbuffer[1] == 'O' && uartbuffer[2] == 'S' && uartbuffer[3] == 'T'){
+			int ret = espconn_connect(client_conn.conn);
+			if(!ret){
+				espbuff_client_send(&client_conn, uartbuffer, length);
+				uart0_sendStr("Client connect OK.\n");
+				uart0_tx_buffer(uartbuffer, length);
+			}
+			else
+				uart0_sendStr("Client connect failed.\n");
+
+			switch(ret){
+				case ESPCONN_RTE: 
+					uart0_sendStr("Routing problem.\n");
+					break;
+				case ESPCONN_MEM:
+					uart0_sendStr("Out of Memery.\n");
+					break;
+				case ESPCONN_ISCONN: 
+					uart0_sendStr("Already connected.\n");
+					break;
+				case ESPCONN_ARG:
+					uart0_sendStr("Cannot find TCP connection.\n");
+					break;
+				default:
+					uart0_sendStr("Unknown error.\n");
+					break;
+			}
+		}
+		
 		for (i = 0; i < MAX_CONN; ++i)
-			if (connect_data[i].conn) 
-				espbuff_send(&connect_data[i], uartbuffer, length);		
+			if (server_conn[i].conn) 
+				espbuff_send(&server_conn[i], uartbuffer, length);		
 	}
 
 	if(UART_RXFIFO_FULL_INT_ST == (READ_PERI_REG(UART_INT_ST(UART0)) & UART_RXFIFO_FULL_INT_ST))
@@ -68,11 +99,12 @@ void user_init(void)
 	config_sensorx();
 	flash_param_t *flash_param;
 	flash_param = flash_param_get();
-	UartDev.data_bits = GETUART_DATABITS(flash_param->uartconf0);
-	UartDev.parity = GETUART_PARITYMODE(flash_param->uartconf0);
-	UartDev.stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
+	UartDev.data_bits = EIGHT_BITS;
+	UartDev.parity = NONE_BITS;
+	UartDev.stop_bits = ONE_STOP_BIT;
 	uart_init(flash_param->baud, BIT_RATE_115200);
 
+	client_init();
 	server_init(23);
 	config_gpio();
 	

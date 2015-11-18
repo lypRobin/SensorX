@@ -31,7 +31,6 @@
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_baud(server_conn_data *conn, uint8_t argc, char *argv[]);
-void config_cmd_flash(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_port(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_mode(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_sta(server_conn_data *conn, uint8_t argc, char *argv[]); 
@@ -39,7 +38,7 @@ void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_sta_hostname(server_conn_data *conn, uint8_t argc, char *argv[]);
-void config_cmd_master_ip(server_conn_data *conn, uint8_t argc, char *argv[]);
+void config_cmd_remote_server(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_restore(server_conn_data *conn, uint8_t argc, char *argv[]);
 
 void config_default_ap(bool restore);
@@ -49,13 +48,11 @@ int check_ip_validation(const char *str);
 
 const config_commands_t config_commands[] = {
 		{ "RESET", &config_cmd_reset },
-		{ "BAUD", &config_cmd_baud },
 		{ "PORT", &config_cmd_port },
 		{ "REMOTE", &config_cmd_remote_server}, // config remote server ip and port when esp8266 as a client
 		{ "MODE", &config_cmd_mode },
 		{ "STA", &config_cmd_sta },   // 
 		{ "AP", &config_cmd_ap },
-		{ "FLASH", &config_cmd_flash },
 		{ "GPIO2", &config_cmd_gpio2 },
 		{ "RESTORE", &config_cmd_restore},
 		{ "STAHOSTNAME", &config_cmd_sta_hostname},
@@ -113,63 +110,16 @@ void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]) {
 
 void config_cmd_baud(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	flash_param_t *flash_param = flash_param_get();
-	UartBitsNum4Char data_bits = GETUART_DATABITS(flash_param->uartconf0);
-	UartParityMode parity = GETUART_PARITYMODE(flash_param->uartconf0);
-	UartStopBitsNum stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
-	const char *stopbits[4] = { "?", "1", "1.5", "2" };
-	const char *paritymodes[4] = { "E", "O", "N", "?" };
 	if (argc == 0)
-		espbuff_send_printf(conn, "BAUD=%d %d %s %s\r\n"MSG_OK, flash_param->baud,data_bits + 5, paritymodes[parity], stopbits[stop_bits]);
-	else {
+		espbuff_send_printf(conn, "BAUD=%d %d %s %s\r\n"MSG_OK, flash_param->baud);
+	else if(argc == 1){
 		uint32_t baud = atoi(argv[1]);
 		if ((baud > (UART_CLK_FREQ / 16)) || baud == 0) {
 			espbuff_send_string(conn, MSG_ERROR);
 			return;
 		}
-		if (argc > 1) {
-			data_bits = atoi(argv[2]);
-			if ((data_bits < 5) || (data_bits > 8)) {
-				espbuff_send_string(conn, MSG_ERROR);
-				return;
-			}
-			data_bits -= 5;
-		}
-		if (argc > 2) {
-			if (strcmp(argv[3], "N") == 0)
-				parity = NONE_BITS;
-			else if (strcmp(argv[3], "O") == 0)
-				parity = ODD_BITS;
-			else if (strcmp(argv[3], "E") == 0)
-				parity = EVEN_BITS;
-			else {
-				espbuff_send_string(conn, MSG_ERROR);
-				return;
-			}
-		}
-		if (argc > 3) {
-			if (strcmp(argv[4], "1")==0)
-				stop_bits = ONE_STOP_BIT;
-			else if (strcmp(argv[4], "2")==0)
-				stop_bits = TWO_STOP_BIT;
-			else if (strcmp(argv[4], "1.5") == 0)
-				stop_bits = ONE_HALF_STOP_BIT;
-			else {
-				espbuff_send_string(conn, MSG_ERROR);
-				return;
-			}
-		}
-		// pump and dump fifo
-		while (TRUE) {
-			uint32_t fifo_cnt = READ_PERI_REG(UART_STATUS(0)) & (UART_TXFIFO_CNT << UART_TXFIFO_CNT_S);
-			if ((fifo_cnt >> UART_TXFIFO_CNT_S & UART_TXFIFO_CNT) == 0) {
-				break;
-			}
-		}
-		os_delay_us(10000);
-		uart_div_modify(UART0, UART_CLK_FREQ / baud);
+		
 		flash_param->baud = baud;
-		flash_param->uartconf0 = CALC_UARTMODE(data_bits, parity, stop_bits);
-		WRITE_PERI_REG(UART_CONF0(UART0), flash_param->uartconf0);
 		if (doflash) {
 			if (flash_param_set())
 				espbuff_send_string(conn, MSG_OK);
@@ -178,29 +128,11 @@ void config_cmd_baud(server_conn_data *conn, uint8_t argc, char *argv[]) {
 		}
 		else
 			espbuff_send_string(conn, MSG_OK);
-
 	}
-}
-
-void config_cmd_flash(server_conn_data *conn, uint8_t argc, char *argv[]) {
-	bool err = false;
-	if (argc == 0)
-		espbuff_send_printf(conn, "FLASH=%d\r\n", doflash);
-	else if (argc != 1)
-		err=true;
-	else {
-		if (strcmp(argv[1], "1") == 0)
-			doflash = true;
-		else if (strcmp(argv[1], "0") == 0)
-			doflash = false;
-		else
-			err=true;
-	}
-	if (err)
-		espbuff_send_string(conn, MSG_ERROR);
 	else
-		espbuff_send_string(conn, MSG_OK);
+		espbuff_send_string(conn, "+++AT BAUD Invalid arguments.\r\n"MSG_ERROR);
 }
+
 
 void config_cmd_port(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	flash_param_t *flash_param = flash_param_get();
@@ -351,7 +283,7 @@ void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 		UartStopBitsNum stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
 		const char *stopbits[4] = { "?", "1", "1.5", "2" };
 		const char *paritymodes[4] = { "E", "O", "N", "?" };
-		espbuff_send_printf(conn, "MASTER IP ADDRESS=%d.%d.%d.%d\r\n", IP2STR(flash_param->remote_ip)); // get master ip
+		espbuff_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d\r\n", IP2STR(&(flash_param->remote_ip)), flash_param->remote_port); // get remote ip and port
 		espbuff_send_printf(conn, "Seiral Info=%d %d %s %s\r\n", flash_param->baud, data_bits + 5, paritymodes[parity], stopbits[stop_bits]); // get baud rate
 		espbuff_send_string(conn, MSG_OK);
 	}
@@ -461,7 +393,7 @@ void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
 void config_cmd_remote_server(server_conn_data *conn, uint8_t argc, char *argv[]){
 	flash_param_t *flash_param  = flash_param_get();
 	if(argc == 0)
-		espbuff_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d\r\n"MSG_OK, IP2STR(flash_param->remote_ip), flash_param->remote_port);
+		espbuff_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d, LOCAL_PORT=%d\r\n"MSG_OK, IP2STR(&(flash_param->remote_ip)), flash_param->remote_port, espconn_port());
 
 	if(argc > 2){
 		espbuff_send_string(conn, MSG_ERROR);
@@ -475,26 +407,32 @@ void config_cmd_remote_server(server_conn_data *conn, uint8_t argc, char *argv[]
 			return;
 		}
 
-		// argc == 1
-		uint32 addr = ipaddr_addr(argv[1]);
-		flash_param->remote_ip = addr;
-			
+		if(argc == 1){
+			uint32 addr = ipaddr_addr(argv[1]);
+			flash_param->remote_ip = addr;
+
+			if (flash_param_set())
+				espbuff_send_printf(conn, "REMOTE IP ADDRESS=%s\r\n"MSG_OK, argv[1]);
+			else
+				espbuff_send_string(conn, "SET REMOTE IP "MSG_ERROR);
+		}	
 
 		if(argc == 2){
-			port = atoi(argv[2]);
-			if(port > 65535 || port < 0){
+			uint32_t port = atoi(argv[2]);
+			if(port > 65535 || port == 0){
 				espbuff_send_printf(conn, "+++AT REMOTE Invalid remote port: %s\r\n"MSG_ERROR, argv[2]);
 				return;
 			}
-			else
+			else{
 				flash_param->remote_port = port;
-
+				if (flash_param_set())
+					espbuff_send_printf(conn, "REMOTE IP ADDRESS=%s, PORT=%d\r\n"MSG_OK, argv[1], argv[2]);
+				else
+					espbuff_send_string(conn, "SET REMOTE IP "MSG_ERROR);
+			}
 		}
-
-		if (flash_param_set())
-			espbuff_send_printf(conn, "REMOTE IP ADDRESS=%s, PORT=%d\r\n"MSG_OK, argv[1], flash_param->remote_port);
-		else
-			espbuff_send_string(conn, "SET REMOTE IP "MSG_ERROR);
+		os_delay_us(10000);
+		system_restart();
 	} 
 
 }
@@ -577,6 +515,7 @@ void config_default_flash_param(bool restore){
 		flash_param->remote_ip = IPADDR_NONE;
 		flash_param->uartconf0 = CALC_UARTMODE(EIGHT_BITS, NONE_BITS, ONE_STOP_BIT);
 		flash_param_set();
+		os_printf("config default_flash_param: done!\n");
 	}
 }
 

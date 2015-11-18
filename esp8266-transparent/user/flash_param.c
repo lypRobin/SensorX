@@ -60,19 +60,3 @@ int ICACHE_FLASH_ATTR flash_param_set(void) {
 	return 1;
 }
 
-void ICACHE_FLASH_ATTR flash_param_init_defaults(void) {	
-	flash_param_t *flash_param = flash_param_get();
-	flash_param->baud = 115200;
-	flash_param->port = 23;
-	flash_param->remote_port = 11311;
-	flash_param->remote_ip = IP_IPADDR_NONE;
-	flash_param->uartconf0 = CALC_UARTMODE(EIGHT_BITS, NONE_BITS, ONE_STOP_BIT);
-	flash_param_set();
-}
-
-flash_param_t* ICACHE_FLASH_ATTR flash_param_init(void) {
-	flash_param_t *flash_param = flash_param_get();
-	flash_param_init_defaults();
-
-	return flash_param;
-}
