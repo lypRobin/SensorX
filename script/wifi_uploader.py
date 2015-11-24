@@ -91,13 +91,13 @@ def uploader(host, hex_dir, port=23):
 	try:
 		print "Connecting to SensorX: " + host + "..."
 		tn = Telnet(host, port, 5)
-		tn.set_debuglevel(10)
+		# tn.set_debuglevel(10)
 		print "Connected."
 		tn.write("+++AT\n")
 		if tn.read_until("OK", 3):
 			print "Communication OK."
 			tn.write("+++AT GPIO2 2 100")
-			time.sleep(0.3)
+			time.sleep(0.4)
 			print "Reset SensorX OK."
 			avr_uploader(host, port, hex_dir)
 		else:
