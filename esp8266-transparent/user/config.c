@@ -49,6 +49,7 @@ int check_ip_validation(const char *str);
 const config_commands_t config_commands[] = {
 		{ "RESET", &config_cmd_reset },
 		{ "PORT", &config_cmd_port },
+		{ "BAUD", &config_cmd_baud },
 		{ "REMOTE", &config_cmd_remote_server}, // config remote server ip and port when esp8266 as a client
 		{ "MODE", &config_cmd_mode },
 		{ "STA", &config_cmd_sta },   // 
