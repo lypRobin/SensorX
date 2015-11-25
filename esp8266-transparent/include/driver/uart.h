@@ -27,6 +27,16 @@
 #define UART0   0
 #define UART1   1
 
+#define UART_DEBUG 0  // uncomment if finish debug
+
+#ifdef UART_DEBUG
+	#define DEBUG_SEND_STRING(str)  	uart0_send_string((str))
+ 	#define DEBUG_SEND_PRINTF(str,...) 	uart0_send_printf(str, ##__VA_ARGS__)
+#else
+ 	#define DEBUG_SEND_STRING(str) 		{;}
+ 	#define DEBUG_SEND_PRINTF(str,...)  {;}
+#endif
+
 //macros for UART_CONF0 register
 
 //calc bit 0..5 for  UART_CONF0 register
@@ -140,7 +150,8 @@ typedef struct {
 } UartDevice;
 
 void uart_init(UartBautRate uart0_br, UartBautRate uart1_br);
-void uart0_sendStr(const char *str);
+void uart0_send_string(const char *str);
+void uart0_send_printf(const char *format, ...);
 
 #endif
 

@@ -53,7 +53,6 @@ def avr_uploader(host, port, hex_dir):
 	except:
 		print "AVR command error."
 		return
-	
 	print MSG[res]
 
 # parameters: ipaddr (string):  ip address

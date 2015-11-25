@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License along
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <stdarg.h>
 #include "ets_sys.h"
 #include "osapi.h"
 #include "driver/uart.h"
 #include "osapi.h"
 #include "driver/uart_register.h"
-//#include "ssc.h"
 #include "task.h"
 
 // UartDev is defined and initialized in rom code.
@@ -156,20 +156,42 @@ uart0_tx_buffer(uint8 *buf, uint16 len)
   }
 }
 
+
 /******************************************************************************
- * FunctionName : uart0_sendStr
+ * FunctionName : uart0_send_string
  * Description  : use uart0 to transfer buffer
  * Parameters   : uint8 *buf - point to send buffer
  *                uint16 len - buffer len
  * Returns      :
 *******************************************************************************/
 void ICACHE_FLASH_ATTR
-uart0_sendStr(const char *str)
+uart0_send_string(const char *str)
 {
 	while(*str)
 	{
 		uart_tx_one_char(UART0, *str++);
 	}
+}
+
+/******************************************************************************
+ * FunctionName : uart0_send_printf
+ * Description  : use uart0 to transfer buffer in format
+ * Parameters   : uint8 *buf - point to send buffer
+ *                uint16 len - buffer len
+ * Returns      :
+*******************************************************************************/
+void ICACHE_FLASH_ATTR
+uart0_send_printf(const char *format, ...)
+{
+  char tmp[256];
+  va_list al;
+  va_start(al, format);
+  int len = ets_vsnprintf(tmp, 255, format, al);
+  if( len < 0)
+    uart0_send_string("[ERROR] uart0_send_printf: Print too long string!");
+  
+  va_end(al);
+  uart0_send_string(tmp);
 }
 
 /******************************************************************************
