@@ -21,6 +21,7 @@
 #include "espconn.h"
 #include "mem.h"
 #include "osapi.h"
+#include "driver/uart.h"
 
 #include "server.h"
 #include "config.h"

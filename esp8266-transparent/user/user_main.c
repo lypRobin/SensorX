@@ -36,6 +36,22 @@ static uint8 uartbuffer[MAX_UARTBUFFER];
 static void ICACHE_FLASH_ATTR recv_task(os_event_t *events)
 {
 	uint8_t i;	 
+	int ret;
+
+	switch(events->sig){
+		case SIG_CLIENT_DISCONN:
+			// client_conn_data* conn = client_get_conn();
+			ret = espconn_disconnect(client_conn.conn);
+			if(!ret)
+				DEBUG_SEND_STRING("disconnect server OK\n");
+			else
+				DEBUG_SEND_STRING("disconnect server failed\n");
+			break;
+		default:
+			DEBUG_SEND_STRING("UNKNOWN SYSTEM EVENTS\n");
+			break;
+	}
+
 	while (READ_PERI_REG(UART_STATUS(UART0)) & (UART_RXFIFO_CNT << UART_RXFIFO_CNT_S))
 	{
 		WRITE_PERI_REG(0X60000914, 0x73); //WTD
@@ -45,32 +61,7 @@ static void ICACHE_FLASH_ATTR recv_task(os_event_t *events)
 
 
 		if(length >= 4 && uartbuffer[0] == 'P' && uartbuffer[1] == 'O' && uartbuffer[2] == 'S' && uartbuffer[3] == 'T'){
-			int ret = espconn_connect(client_conn.conn);
-			if(!ret){
-				espbuff_client_send(&client_conn, uartbuffer, length);
-				uart0_sendStr("Client connect OK.\n");
-				uart0_tx_buffer(uartbuffer, length);
-			}
-			else
-				uart0_sendStr("Client connect failed.\n");
-
-			switch(ret){
-				case ESPCONN_RTE: 
-					uart0_sendStr("Routing problem.\n");
-					break;
-				case ESPCONN_MEM:
-					uart0_sendStr("Out of Memery.\n");
-					break;
-				case ESPCONN_ISCONN: 
-					uart0_sendStr("Already connected.\n");
-					break;
-				case ESPCONN_ARG:
-					uart0_sendStr("Cannot find TCP connection.\n");
-					break;
-				default:
-					uart0_sendStr("Unknown error.\n");
-					break;
-			}
+			client_connect(uartbuffer);
 		}
 		
 		for (i = 0; i < MAX_CONN; ++i)
@@ -111,7 +102,7 @@ void user_init(void)
 
 	uint8_t i = 0;
 	for (i = 0; i < 16; ++i)
-		uart0_sendStr("\r\n");
+		uart0_send_string("\r\n");
 
 	system_os_task(recv_task, RECEIVE_TASK_PRIO, recv_task_queue, RECEIVE_TASK_QUEUE_LEN);
 }

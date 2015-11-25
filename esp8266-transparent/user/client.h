@@ -28,6 +28,9 @@
 //Max send buffer len
 #define MAX_CLIENT_TXBUFFER 1024
 
+// post client disconnect signal to recv_task in user_main.
+#define SIG_CLIENT_DISCONN 0
+
 typedef struct client_conn_data client_conn_data;
 
 struct client_conn_data {
@@ -37,11 +40,14 @@ struct client_conn_data {
  		bool readytosend; //true, if txbuffer can send by espconn_send
 };
 
+void client_connect(char *data);
 void ICACHE_FLASH_ATTR client_init();
-void client_config(char *addr, uint32_t port);
-sint8  ICACHE_FLASH_ATTR espbuff_client_send(client_conn_data *conn, const char *data, uint16 len);
-sint8  ICACHE_FLASH_ATTR espbuff_client_send_string(client_conn_data *conn, const char *data);
-sint8  ICACHE_FLASH_ATTR espbuff_client_send_printf(client_conn_data *conn, const char *format, ...);
+struct client_conn_data* client_get_conn();
+// void client_config(char *addr, uint32_t port);
+
+sint8  ICACHE_FLASH_ATTR client_send(client_conn_data *conn, const char *data, uint16 len);
+sint8  ICACHE_FLASH_ATTR client_send_string(client_conn_data *conn, const char *data);
+sint8  ICACHE_FLASH_ATTR client_send_printf(client_conn_data *conn, const char *format, ...);
 
 
 #endif /* __CLIENT_H__ */
