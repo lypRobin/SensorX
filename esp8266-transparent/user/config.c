@@ -28,6 +28,10 @@
 #include "server.h"
 #include "config.h"
 
+#define HIGH  1
+#define LOW   0
+#define SET_GPIO(BIT, STATE) ( STATE ? gpio_output_set(BIT, 0, BIT, 0) : gpio_output_set(0, BIT, BIT, 0) )
+
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_baud(server_conn_data *conn, uint8_t argc, char *argv[]);
@@ -69,8 +73,12 @@ void config_gpio(void) {
 	gpio_init();
 	//Set GPIO2 to output mode
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
 	//Set GPIO2 high
-	gpio_output_set(BIT2, 0, BIT2, 0);
+	SET_GPIO(BIT2, HIGT);
+	SET_GPIO(BIT4, LOW);
+	SET_GPIO(BIT5, LOW);
 }
 
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]) {
@@ -90,18 +98,18 @@ void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]) {
 		uint8_t gpio = atoi(argv[1]);
 		if (gpio < 3) {
 			if (gpio == 0) {
-				gpio_output_set(0, BIT2, BIT2, 0);
-				espbuff_send_string(conn, "LOW\r\n");
+				SET_GPIO(BIT2, LOW);
+				espbuff_send_string(conn, "LOW\r\n"MSG_OK);
 			}
 			if (gpio == 1) {
-				gpio_output_set(BIT2, 0, BIT2, 0);
-				espbuff_send_string(conn, "HIGH\r\n");
+				SET_GPIO(BIT2, HIGH);
+				espbuff_send_string(conn, "HIGH\r\n"MSG_OK);
 			}
 			if (gpio == 2) {
-				gpio_output_set(0, BIT2, BIT2, 0);
+				SET_GPIO(BIT2, LOW);
 				os_delay_us(gpiodelay*1000);
-				gpio_output_set(BIT2, 0, BIT2, 0);
-				espbuff_send_printf(conn, "RESET %d ms\r\n",gpiodelay);
+				SET_GPIO(BIT2, HIGH);
+				espbuff_send_printf(conn, "RESET %d ms\r\n"MSG_OK, gpiodelay);
 			}
 		} else {
 			espbuff_send_string(conn, MSG_ERROR);
@@ -257,27 +265,38 @@ void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]) {
 
 void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 	if(argc == 0){
-		espbuff_send_printf(conn, "MODE=%d\r\n", wifi_get_opmode()); // get mode
+		// get mode
+		espbuff_send_printf(conn, "MODE=%d\r\n", wifi_get_opmode()); 
 
 		struct ip_info sta_ip, ap_ip;
-		wifi_get_ip_info(SOFTAP_IF, &ap_ip);
+		
+		// get sta ip
 		wifi_get_ip_info(STATION_IF, &sta_ip);
 		char tmp[64];
 		if(sta_ip.ip.addr == 0){
-		    espbuff_send_string(conn, "SensorX is not connected to AP\r\n");
-		    //return;
+		    espbuff_send_string(conn, "STA IP=\r\n");
 		}else{
 			os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&sta_ip.ip));
-			espbuff_send_printf(conn, "STA IP=%s\r\n", tmp);  // get sta ip
+			espbuff_send_printf(conn, "STA IP=%s\r\n", tmp);  
 			struct station_config sta_conf;
 			wifi_station_get_config(&sta_conf);
-			espbuff_send_printf(conn, "STA SSID=%s\r\n", sta_conf.ssid); // get sta ssid
+			espbuff_send_printf(conn, "STA SSID=%s\r\n", sta_conf.ssid); 
 		}
+
+		// get sta hostname
+		espbuff_send_printf(conn, "STA HOSTNAME=%s\r\n", wifi_station_get_hostname());
+
+		// get ap ssid
 		struct softap_config ap_conf;
 		wifi_softap_get_config(&ap_conf);
-		os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&ap_ip.ip));
-		espbuff_send_printf(conn, "AP IP=%s\r\n", tmp);  // get ap ip
+		espbuff_send_printf(conn, "AP SSID=%s\r\n", ap_conf.ssid);  
 
+		// get ap ip
+		wifi_get_ip_info(SOFTAP_IF, &ap_ip);
+		os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&ap_ip.ip));
+		espbuff_send_printf(conn, "AP IP=%s\r\n", tmp); 
+
+		// get remote ip and serial info
 		flash_param_t *flash_param  = flash_param_get();
 		UartBitsNum4Char data_bits = GETUART_DATABITS(flash_param->uartconf0);
 		UartParityMode parity = GETUART_PARITYMODE(flash_param->uartconf0);

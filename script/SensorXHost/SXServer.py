@@ -25,7 +25,7 @@ class HostServerHandler(StreamRequestHandler):
 
 if __name__ == '__main__':
 	host = ""
-	port = 11314
+	port = 11311
 	addr = (host, port)
 	server = MyThreadingTCPServer(addr, HostServerHandler)
 	server.serve_forever()

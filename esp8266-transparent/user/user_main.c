@@ -36,21 +36,15 @@ static uint8 uartbuffer[MAX_UARTBUFFER];
 static void ICACHE_FLASH_ATTR recv_task(os_event_t *events)
 {
 	uint8_t i;	 
-	int ret;
 
-	switch(events->sig){
-		case SIG_CLIENT_DISCONN:
-			// client_conn_data* conn = client_get_conn();
-			ret = espconn_disconnect(client_conn.conn);
-			if(!ret)
-				DEBUG_SEND_STRING("disconnect server OK\n");
-			else
-				DEBUG_SEND_STRING("disconnect server failed\n");
-			break;
-		default:
-			DEBUG_SEND_STRING("UNKNOWN SYSTEM EVENTS\n");
-			break;
+	if(events->sig == SIG_CLIENT_DISCONN && (char)events->par == 'd'){
+		int ret = espconn_disconnect(client_conn.conn);
+		if(!ret)
+			DEBUG_SEND_STRING("disconnect server OK\n");
+		else
+			DEBUG_SEND_STRING("disconnect server failed\n");
 	}
+
 
 	while (READ_PERI_REG(UART_STATUS(UART0)) & (UART_RXFIFO_CNT << UART_RXFIFO_CNT_S))
 	{
@@ -101,7 +95,7 @@ void user_init(void)
 	
 
 	uint8_t i = 0;
-	for (i = 0; i < 16; ++i)
+	for (i = 0; i < 5; ++i)
 		uart0_send_string("\r\n");
 
 	system_os_task(recv_task, RECEIVE_TASK_PRIO, recv_task_queue, RECEIVE_TASK_QUEUE_LEN);

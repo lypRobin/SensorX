@@ -28,48 +28,29 @@
 
 #define CONNECT_TIME  4000    // connect to wifi ap per time, in ms
 
-// static struct espconn client_espconn;
-// static esp_tcp client_tcp;
 client_conn_data client_conn;
 static char client_txbuffer[MAX_CLIENT_TXBUFFER];
 os_timer_t timer;
 
-struct client_conn_data* client_get_conn(){
-	return &client_conn;
-}
-
-static sint8  ICACHE_FLASH_ATTR send_txbuffer(client_conn_data *conn) {
-	if(conn->conn == NULL)
+sint8  ICACHE_FLASH_ATTR client_send(client_conn_data *conn, const char *data, uint16 len){
+	if(conn->conn == NULL || conn == NULL)
 		return ESPCONN_ARG;
 	if(conn->txbufferlen != 0){
 		conn->readytosend = false;
-		sint8 result = espconn_send(conn->conn, (uint8_t*)conn->txbuffer, conn->txbufferlen);
-		conn->txbufferlen = 0;	
-		if (result != ESPCONN_OK)
+		sint8 result = espconn_send(conn->conn, (uint8_t*)data, len);
+		conn->txbufferlen = 0;
+		if (result != ESPCONN_OK){
 			DEBUG_SEND_PRINTF("send_txbuffer: espconn_send error, result %d.\n", result);
+			return ESPCONN_ARG;
+		}
 	}
 
 	return ESPCONN_OK;
 }
 
-sint8  ICACHE_FLASH_ATTR client_send(client_conn_data *conn, const char *data, uint16 len){
-	if(conn == NULL)
-		return ESPCONN_ARG;
-
-	if(conn->txbufferlen + len > MAX_CLIENT_TXBUFFER)
-		return ESPCONN_ARG;
-
-	os_memcpy(conn->txbuffer + conn->txbufferlen, data, len);
-	conn->txbufferlen += len;
-	if (conn->readytosend) 
-		return send_txbuffer(conn);
-		
-	return ESPCONN_OK;
-}
-
 
 sint8  ICACHE_FLASH_ATTR client_send_string(client_conn_data *conn, const char *data){
-	if(conn == NULL)
+	if(conn == NULL || conn->conn == NULL)
 		return ESPCONN_ARG;
 	return client_send(conn, data, os_strlen(data));
 }
@@ -84,9 +65,10 @@ sint8  ICACHE_FLASH_ATTR client_send_printf(client_conn_data *conn, const char *
 		DEBUG_SEND_STRING("espbuff_send_printf: txbuffer full\n");
 		return ESPCONN_ARG;
 	}
-	conn->txbufferlen += len;
+	conn->txbufferlen = len;
 	if (conn->readytosend)
-		return send_txbuffer(conn);
+		return client_send(conn, conn->txbuffer, conn->txbufferlen);
+
 	return ESPCONN_OK;
 }
 
@@ -94,7 +76,7 @@ sint8  ICACHE_FLASH_ATTR client_send_printf(client_conn_data *conn, const char *
 //callback after the data are sent
 static void ICACHE_FLASH_ATTR client_send_cb(void *arg) {
 	client_conn_data *conn;
-	conn->conn = arg;
+	conn->conn = (struct espconn*)arg;
 	if (conn->conn == NULL) 
 		return;
 	conn->readytosend = true;
@@ -108,7 +90,7 @@ static void ICACHE_FLASH_ATTR client_recv_cb(void *arg, char *data, unsigned sho
 		DEBUG_SEND_PRINTF("receive server send back data: %s\n", data);
 		uart0_send_string("POST=OK\n");
 		
-		system_os_post(USER_TASK_PRIO_0, SIG_CLIENT_DISCONN, 0);
+		system_os_post(USER_TASK_PRIO_0, SIG_CLIENT_DISCONN, 'd');
 	}
 		
 }
@@ -136,7 +118,17 @@ static void ICACHE_FLASH_ATTR client_connect_cb(void *arg){
 	espconn_regist_disconcb(conn, client_disconn_cb);
 	espconn_regist_sentcb(conn, client_send_cb);
 
-	client_send(&client_conn, (const char *)client_conn.txbuffer, client_conn.txbufferlen);
+	int cnt = 0;
+	int ret;
+	for(; cnt < 3; cnt++){
+		ret = client_send(&client_conn, (const char *)client_conn.txbuffer, client_conn.txbufferlen);
+		if(ret != ESPCONN_OK){
+			uart0_send_string("POST=ERROR\n");
+			os_delay_us(10000);
+		}
+		else
+			break;
+	}
 }
 
 

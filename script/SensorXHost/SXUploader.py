@@ -27,7 +27,7 @@ USAGE = 'Usage: wifi_uploader.py host hex_directory [port]'
 # parameters: host (string): ip host address
 #			  port (int): port
 #			  hex_dir (string): arduino hex file directory
-def avr_uploader(host, port, hex_dir):
+def sx_avr_uploader(host, port, hex_dir):
 	"""avrdude arduino uploader using commandline. """
 
 	MSG = {'0': 'Upload successfully.', \
@@ -58,7 +58,7 @@ def avr_uploader(host, port, hex_dir):
 # parameters: ipaddr (string):  ip address
 # return value: True: valid ip address
 #				False: invalid ip address
-def check_ip(ipaddr):
+def sx_check_ip(ipaddr):
 	'''check ip address available.'''
 	ips = ipaddr.strip().split('.')
 	if len(ips) != 4:
@@ -77,8 +77,8 @@ def check_ip(ipaddr):
 # parameters: host (string): ip host address
 #			  port (int): port
 #			  hex_dir (string): arduino hex file directory
-def uploader(host, hex_dir, port=23):
-	if not check_ip(host):
+def sx_uploader(host, hex_dir, port=23):
+	if not sx_check_ip(host):
 		print "Invalid host ip address: " + host
 		print USAGE
 		return
@@ -98,7 +98,7 @@ def uploader(host, hex_dir, port=23):
 			tn.write("+++AT GPIO2 2 100")
 			time.sleep(0.4)
 			print "Reset SensorX OK."
-			avr_uploader(host, port, hex_dir)
+			sx_avr_uploader(host, port, hex_dir)
 		else:
 			print "Communication ERROR."
 			return
@@ -124,13 +124,13 @@ if __name__ == '__main__':
 	# host and hex directory
 	if argc == 3: 
 		HEX_DIR = sys.argv[2]
-		uploader(HOST, HEX_DIR)
+		sx_uploader(HOST, HEX_DIR)
 	# host, port and hex directory
 	else:
 		HEX_DIR = sys.argv[2]
 		try:
 			PORT = int(sys.argv[3])
-			uploader(HOST, HEX_DIR, PORT)
+			sx_uploader(HOST, HEX_DIR, PORT)
 		except:
 			print "Invalid port."
 			print USAGE

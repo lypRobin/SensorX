@@ -140,6 +140,19 @@ static void ICACHE_FLASH_ATTR server_disconn_cb(void *arg) {
 	}
 }
 
+void server_connect_welcome(server_conn_data *conn){
+	const char wel[] = "\n\n\
+/************  Welcome to SensorX  *************/\n\
+/****  Usage:                                ***/\n\
+/****  +++AT COMMAND [PARAMETERS]            ***/\n\
+/****  COMMAND: PORT BAUD REMOTE STA STAIP   ***/\n\
+/****           REMOTE RESTORE STATUS GPIO2  ***/\n\
+/****           STAHOSTNAME AP RESET         ***/\n\
+/******************   ENJOY!   *****************/\n\n\n";
+
+	espbuff_send_string(conn, wel);
+}
+
 static void ICACHE_FLASH_ATTR server_connect_cb(void *arg) {
 	struct espconn *conn = arg;
 	int i;
@@ -160,6 +173,8 @@ static void ICACHE_FLASH_ATTR server_connect_cb(void *arg) {
 	espconn_regist_reconcb(conn, server_reconn_cb);
 	espconn_regist_disconcb(conn, server_disconn_cb);
 	espconn_regist_sentcb(conn, server_send_cb);
+
+	server_connect_welcome(&server_conn[i]);
 }
 
 void ICACHE_FLASH_ATTR server_init(int port) {
