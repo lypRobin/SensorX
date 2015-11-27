@@ -28,9 +28,6 @@
 #include "server.h"
 #include "config.h"
 
-#define HIGH  1
-#define LOW   0
-#define SET_GPIO(BIT, STATE) ( STATE ? gpio_output_set(BIT, 0, BIT, 0) : gpio_output_set(0, BIT, BIT, 0) )
 
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]);
 void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]);
@@ -76,20 +73,20 @@ void config_gpio(void) {
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
 	//Set GPIO2 high
-	SET_GPIO(BIT2, HIGT);
+	SET_GPIO(BIT2, HIGH);
 	SET_GPIO(BIT4, LOW);
 	SET_GPIO(BIT5, LOW);
 }
 
 void config_cmd_reset(server_conn_data *conn, uint8_t argc, char *argv[]) {
-	espbuff_send_string(conn, MSG_OK);
+	server_send_string(conn, MSG_OK);
 	system_restart();
 }
 
 
 void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	if (argc == 0)
-		espbuff_send_printf(conn, "Args: 0=low, 1=high, 2 <delay in ms>=reset (delay optional).\r\n");
+		server_send_printf(conn, "Args: 0=low, 1=high, 2 <delay in ms>=reset (delay optional).\r\n");
 	else {
 		uint32_t gpiodelay = 100;
 		if (argc == 2) {
@@ -99,20 +96,20 @@ void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]) {
 		if (gpio < 3) {
 			if (gpio == 0) {
 				SET_GPIO(BIT2, LOW);
-				espbuff_send_string(conn, "LOW\r\n"MSG_OK);
+				server_send_string(conn, "LOW\r\n"MSG_OK);
 			}
 			if (gpio == 1) {
 				SET_GPIO(BIT2, HIGH);
-				espbuff_send_string(conn, "HIGH\r\n"MSG_OK);
+				server_send_string(conn, "HIGH\r\n"MSG_OK);
 			}
 			if (gpio == 2) {
 				SET_GPIO(BIT2, LOW);
 				os_delay_us(gpiodelay*1000);
 				SET_GPIO(BIT2, HIGH);
-				espbuff_send_printf(conn, "RESET %d ms\r\n"MSG_OK, gpiodelay);
+				server_send_printf(conn, "RESET %d ms\r\n"MSG_OK, gpiodelay);
 			}
 		} else {
-			espbuff_send_string(conn, MSG_ERROR);
+			server_send_string(conn, MSG_ERROR);
 		}
 	}
 }
@@ -120,26 +117,26 @@ void config_cmd_gpio2(server_conn_data *conn, uint8_t argc, char *argv[]) {
 void config_cmd_baud(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	flash_param_t *flash_param = flash_param_get();
 	if (argc == 0)
-		espbuff_send_printf(conn, "BAUD=%d %d %s %s\r\n"MSG_OK, flash_param->baud);
+		server_send_printf(conn, "BAUD=%d %d %s %s\r\n"MSG_OK, flash_param->baud);
 	else if(argc == 1){
 		uint32_t baud = atoi(argv[1]);
 		if ((baud > (UART_CLK_FREQ / 16)) || baud == 0) {
-			espbuff_send_string(conn, MSG_ERROR);
+			server_send_string(conn, MSG_ERROR);
 			return;
 		}
 		
 		flash_param->baud = baud;
 		if (doflash) {
 			if (flash_param_set())
-				espbuff_send_string(conn, MSG_OK);
+				server_send_string(conn, MSG_OK);
 			else
-				espbuff_send_string(conn, MSG_ERROR);
+				server_send_string(conn, MSG_ERROR);
 		}
 		else
-			espbuff_send_string(conn, MSG_OK);
+			server_send_string(conn, MSG_OK);
 	}
 	else
-		espbuff_send_string(conn, "+++AT BAUD Invalid arguments.\r\n"MSG_ERROR);
+		server_send_string(conn, "+++AT BAUD Invalid arguments.\r\n"MSG_ERROR);
 }
 
 
@@ -147,24 +144,24 @@ void config_cmd_port(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	flash_param_t *flash_param = flash_param_get();
 
 	if (argc == 0)
-		espbuff_send_printf(conn, "PORT=%d\r\n"MSG_OK, flash_param->port);
+		server_send_printf(conn, "PORT=%d\r\n"MSG_OK, flash_param->port);
 	else if (argc != 1)
-		espbuff_send_string(conn, MSG_ERROR);
+		server_send_string(conn, MSG_ERROR);
 	else {
 		uint32_t port = atoi(argv[1]);
 		if ((port == 0)||(port>65535)) {
-			espbuff_send_string(conn, MSG_ERROR);
+			server_send_string(conn, MSG_ERROR);
 		} else {
 			if (port != flash_param->port) {
 				flash_param->port = port;
 				if (flash_param_set())
-					espbuff_send_string(conn, MSG_OK);
+					server_send_string(conn, MSG_OK);
 				else
-					espbuff_send_string(conn, MSG_ERROR);
+					server_send_string(conn, MSG_ERROR);
 				os_delay_us(10000);
 				system_restart();
 			} else {
-				espbuff_send_string(conn, MSG_OK);
+				server_send_string(conn, MSG_OK);
 			}
 		}
 	}
@@ -174,9 +171,9 @@ void config_cmd_mode(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	uint8_t mode;
 
 	if (argc == 0) {
-		espbuff_send_printf(conn, "MODE=%d\r\n"MSG_OK, wifi_get_opmode());
+		server_send_printf(conn, "MODE=%d\r\n"MSG_OK, wifi_get_opmode());
 	} else if (argc != 1) {
-		espbuff_send_string(conn, MSG_ERROR);
+		server_send_string(conn, MSG_ERROR);
 	} else {
 		mode = atoi(argv[1]);
 		if (mode >= 1 && mode <= 3) {
@@ -184,14 +181,14 @@ void config_cmd_mode(server_conn_data *conn, uint8_t argc, char *argv[]) {
 				ETS_UART_INTR_DISABLE();
 				wifi_set_opmode(mode);
 				ETS_UART_INTR_ENABLE();
-				espbuff_send_string(conn, MSG_OK);
+				server_send_string(conn, MSG_OK);
 				os_delay_us(10000);
 				system_restart();
 			} else {
-				espbuff_send_string(conn, MSG_OK);
+				server_send_string(conn, MSG_OK);
 			}
 		} else {
-			espbuff_send_string(conn, MSG_ERROR);
+			server_send_string(conn, MSG_ERROR);
 		}
 	}
 }
@@ -205,13 +202,13 @@ void config_cmd_sta(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	wifi_station_get_config(&sta_conf);
 
 	if (argc == 0)
-		espbuff_send_printf(conn, "SSID=%s PASSWORD=%s\r\n"MSG_OK, sta_conf.ssid, sta_conf.password);
+		server_send_printf(conn, "SSID=%s PASSWORD=%s\r\n"MSG_OK, sta_conf.ssid, sta_conf.password);
 	 else if (argc != 2)
-		espbuff_send_string(conn, MSG_ERROR);
+		server_send_string(conn, MSG_ERROR);
 	else {
 		os_strncpy(sta_conf.ssid, ssid, sizeof(sta_conf.ssid));
 		os_strncpy(sta_conf.password, password, sizeof(sta_conf.password));
-		espbuff_send_string(conn, MSG_OK);
+		server_send_string(conn, MSG_OK);
 		wifi_station_disconnect();
 		ETS_UART_INTR_DISABLE();
 		wifi_station_set_config(&sta_conf);
@@ -227,9 +224,9 @@ void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]) {
 	os_bzero(&ap_conf, sizeof(struct softap_config));
 	wifi_softap_get_config(&ap_conf);
 	if (argc == 0)
-		espbuff_send_printf(conn, "SSID=%s PASSWORD=%s AUTHMODE=%d CHANNEL=%d\r\n"MSG_OK, ap_conf.ssid, ap_conf.password, ap_conf.authmode, ap_conf.channel);
+		server_send_printf(conn, "SSID=%s PASSWORD=%s AUTHMODE=%d CHANNEL=%d\r\n"MSG_OK, ap_conf.ssid, ap_conf.password, ap_conf.authmode, ap_conf.channel);
 	else if (argc > 4)
-		espbuff_send_string(conn, MSG_ERROR);
+		server_send_string(conn, MSG_ERROR);
 	else { //argc > 0
 		os_strncpy(ap_conf.ssid, ssid, sizeof(ap_conf.ssid));
 		ap_conf.ssid_len = strlen(ssid); //without set ssid_len, no connection to AP is possible
@@ -241,7 +238,7 @@ void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]) {
 			if (argc > 2) { // authmode
 				int amode = atoi(argv[3]);
 				if ((amode < 1) || (amode>4)) {
-					espbuff_send_string(conn, MSG_ERROR);
+					server_send_string(conn, MSG_ERROR);
 					return;
 				}
 				ap_conf.authmode = amode;
@@ -249,13 +246,13 @@ void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]) {
 			if (argc > 3) { //channel
 				int chan = atoi(argv[4]);
 				if ((chan < 1) || (chan>13)){
-					espbuff_send_string(conn, MSG_ERROR);
+					server_send_string(conn, MSG_ERROR);
 					return;
 				}
 				ap_conf.channel = chan;
 			}
 		}
-		espbuff_send_string(conn, MSG_OK);
+		server_send_string(conn, MSG_OK);
 		ETS_UART_INTR_DISABLE();
 		wifi_softap_set_config(&ap_conf);
 		ETS_UART_INTR_ENABLE();
@@ -266,7 +263,7 @@ void config_cmd_ap(server_conn_data *conn, uint8_t argc, char *argv[]) {
 void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 	if(argc == 0){
 		// get mode
-		espbuff_send_printf(conn, "MODE=%d\r\n", wifi_get_opmode()); 
+		server_send_printf(conn, "MODE=%d\r\n", wifi_get_opmode()); 
 
 		struct ip_info sta_ip, ap_ip;
 		
@@ -274,27 +271,27 @@ void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 		wifi_get_ip_info(STATION_IF, &sta_ip);
 		char tmp[64];
 		if(sta_ip.ip.addr == 0){
-		    espbuff_send_string(conn, "STA IP=\r\n");
+		    server_send_string(conn, "STA IP=\r\n");
 		}else{
 			os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&sta_ip.ip));
-			espbuff_send_printf(conn, "STA IP=%s\r\n", tmp);  
+			server_send_printf(conn, "STA IP=%s\r\n", tmp);  
 			struct station_config sta_conf;
 			wifi_station_get_config(&sta_conf);
-			espbuff_send_printf(conn, "STA SSID=%s\r\n", sta_conf.ssid); 
+			server_send_printf(conn, "STA SSID=%s\r\n", sta_conf.ssid); 
 		}
 
 		// get sta hostname
-		espbuff_send_printf(conn, "STA HOSTNAME=%s\r\n", wifi_station_get_hostname());
+		server_send_printf(conn, "STA HOSTNAME=%s\r\n", wifi_station_get_hostname());
 
 		// get ap ssid
 		struct softap_config ap_conf;
 		wifi_softap_get_config(&ap_conf);
-		espbuff_send_printf(conn, "AP SSID=%s\r\n", ap_conf.ssid);  
+		server_send_printf(conn, "AP SSID=%s\r\n", ap_conf.ssid);  
 
 		// get ap ip
 		wifi_get_ip_info(SOFTAP_IF, &ap_ip);
 		os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&ap_ip.ip));
-		espbuff_send_printf(conn, "AP IP=%s\r\n", tmp); 
+		server_send_printf(conn, "AP IP=%s\r\n", tmp); 
 
 		// get remote ip and serial info
 		flash_param_t *flash_param  = flash_param_get();
@@ -303,12 +300,12 @@ void config_cmd_status(server_conn_data *conn, uint8_t argc, char *argv[]){
 		UartStopBitsNum stop_bits = GETUART_STOPBITS(flash_param->uartconf0);
 		const char *stopbits[4] = { "?", "1", "1.5", "2" };
 		const char *paritymodes[4] = { "E", "O", "N", "?" };
-		espbuff_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d\r\n", IP2STR(&(flash_param->remote_ip)), flash_param->remote_port); // get remote ip and port
-		espbuff_send_printf(conn, "Seiral Info=%d %d %s %s\r\n", flash_param->baud, data_bits + 5, paritymodes[parity], stopbits[stop_bits]); // get baud rate
-		espbuff_send_string(conn, MSG_OK);
+		server_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d\r\n", IP2STR(&(flash_param->remote_ip)), flash_param->remote_port); // get remote ip and port
+		server_send_printf(conn, "Seiral Info=%d %d %s %s\r\n", flash_param->baud, data_bits + 5, paritymodes[parity], stopbits[stop_bits]); // get baud rate
+		server_send_string(conn, MSG_OK);
 	}
 	else{
-		espbuff_send_string(conn, "+++AT STATUS Invalid arguments.\r\n");
+		server_send_string(conn, "+++AT STATUS Invalid arguments.\r\n");
 		return;
 	}
 }
@@ -354,23 +351,23 @@ void config_cmd_sta_hostname(server_conn_data *conn, uint8_t argc, char *argv[])
 	if(argc == 0){
 		char sta_hostname[32];
 		os_strcpy(sta_hostname, wifi_station_get_hostname());
-		espbuff_send_printf(conn, "STATION HOSTNAME=%s\r\n"MSG_OK, sta_hostname);
+		server_send_printf(conn, "STATION HOSTNAME=%s\r\n"MSG_OK, sta_hostname);
 	}
 	else if(argc > 1){
-		espbuff_send_string(conn, "+++AT STAIP Invalid IP Address.\t\n");
-		espbuff_send_string(conn, MSG_ERROR);	
+		server_send_string(conn, "+++AT STAIP Invalid IP Address.\t\n");
+		server_send_string(conn, MSG_ERROR);	
 		return;
 	}
 	else{ // argc == 1
 		if(os_strlen(argv[1]) > 32){
-			espbuff_send_string(conn, "STATION HOSTNAME TOO LONG.\r\n"MSG_ERROR);
+			server_send_string(conn, "STATION HOSTNAME TOO LONG.\r\n"MSG_ERROR);
 			return;
 		}
 		else{
 			if(wifi_station_set_hostname(argv[1]))
-				espbuff_send_printf(conn, "SET STATION HOSTNAME=%s\r\n"MSG_OK, argv[1]);
+				server_send_printf(conn, "SET STATION HOSTNAME=%s\r\n"MSG_OK, argv[1]);
 			else
-				espbuff_send_string(conn, MSG_ERROR);
+				server_send_string(conn, MSG_ERROR);
 		}
 
 	}
@@ -383,28 +380,28 @@ void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
 	
 	if(argc == 0){	
 		os_sprintf(tmp, "\"%d.%d.%d.%d\"", IP2STR(&sta_ip.ip));
-		espbuff_send_printf(conn, "STATION IP ADDRESS=%s\r\n"MSG_OK, tmp);
+		server_send_printf(conn, "STATION IP ADDRESS=%s\r\n"MSG_OK, tmp);
 	}
 	else if(argc == 1){
 		if(check_ip_validation(argv[1]) < 0){
-			espbuff_send_string(conn, "+++AT STAIP Invalid IP Address.\t\n");
-			espbuff_send_string(conn, MSG_ERROR);
+			server_send_string(conn, "+++AT STAIP Invalid IP Address.\t\n");
+			server_send_string(conn, MSG_ERROR);
 			return;
 		}
 		else{
 			wifi_station_dhcpc_stop();
 			sta_ip.ip.addr = ipaddr_addr(argv[1]);
 			if(wifi_set_ip_info(STATION_IF, &sta_ip))
-				espbuff_send_string(conn, MSG_OK);
+				server_send_string(conn, MSG_OK);
 			else{
-				espbuff_send_string(conn, MSG_ERROR);
+				server_send_string(conn, MSG_ERROR);
 				wifi_station_dhcpc_start();
 			}
 		}
 	}
 	else{
-		espbuff_send_string(conn, "+++AT STAIP Invalid arguments");
-		espbuff_send_string(conn, MSG_ERROR);
+		server_send_string(conn, "+++AT STAIP Invalid arguments");
+		server_send_string(conn, MSG_ERROR);
 	}
 }
 
@@ -412,45 +409,48 @@ void config_cmd_sta_ip(server_conn_data *conn, uint8_t argc, char *argv[]){
 
 void config_cmd_remote_server(server_conn_data *conn, uint8_t argc, char *argv[]){
 	flash_param_t *flash_param  = flash_param_get();
-	if(argc == 0)
-		espbuff_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d, LOCAL_PORT=%d\r\n"MSG_OK, IP2STR(&(flash_param->remote_ip)), flash_param->remote_port, espconn_port());
-
+		
 	if(argc > 2){
-		espbuff_send_string(conn, MSG_ERROR);
-		espbuff_send_string(conn, "+++AT REMOTE Invalid arguments.\t\n");
+		server_send_string(conn, "+++AT REMOTE Invalid arguments.\t\n"MSG_ERROR);
 		return;
 	}
-	else{
+	else if (argc == 0){ // get remote ip info
+		server_send_printf(conn, "REMOTE IP ADDRESS=%d.%d.%d.%d, PORT=%d, LOCAL_PORT=%d\r\n"MSG_OK, IP2STR(&(flash_param->remote_ip)), flash_param->remote_port, espconn_port());
+		return;
+	}
+	else if(argc == 1){  // just set address
 		if(check_ip_validation(argv[1]) < 0){
-			espbuff_send_string(conn, MSG_ERROR);
-			espbuff_send_string(conn, "+++AT REMOTE Invalid IP Address.\t\n");
+			server_send_string(conn, "+++AT REMOTE Invalid IP Address.\t\n"MSG_ERROR);
 			return;
 		}
+		uint32 addr = ipaddr_addr(argv[1]);
+		flash_param->remote_ip = addr;
 
-		if(argc == 1){
-			uint32 addr = ipaddr_addr(argv[1]);
-			flash_param->remote_ip = addr;
+		if (flash_param_set())
+			server_send_printf(conn, "REMOTE IP ADDRESS=%s\r\n"MSG_OK, argv[1]);
+		else
+			server_send_string(conn, "SET REMOTE IP FAILED.\t\n"MSG_ERROR);
 
-			if (flash_param_set())
-				espbuff_send_printf(conn, "REMOTE IP ADDRESS=%s\r\n"MSG_OK, argv[1]);
-			else
-				espbuff_send_string(conn, "SET REMOTE IP "MSG_ERROR);
-		}	
-
-		if(argc == 2){
-			uint32_t port = atoi(argv[2]);
-			if(port > 65535 || port == 0){
-				espbuff_send_printf(conn, "+++AT REMOTE Invalid remote port: %s\r\n"MSG_ERROR, argv[2]);
-				return;
-			}
-			else{
-				flash_param->remote_port = port;
-				if (flash_param_set())
-					espbuff_send_printf(conn, "REMOTE IP ADDRESS=%s, PORT=%d\r\n"MSG_OK, argv[1], argv[2]);
-				else
-					espbuff_send_string(conn, "SET REMOTE IP "MSG_ERROR);
-			}
+		os_delay_us(10000);
+		system_restart();
+	}
+	else if(argc == 2){  // set address and port
+		if(check_ip_validation(argv[1]) < 0){
+			server_send_string(conn, "+++AT REMOTE Invalid IP Address.\t\n"MSG_ERROR);
+			return;
 		}
+		uint32_t port = atoi(argv[2]);
+		if(port > 65535 || port == 0){
+			server_send_printf(conn, "+++AT REMOTE Invalid remote port: %s\r\n"MSG_ERROR, argv[2]);
+			return;
+		}
+		
+		flash_param->remote_port = port;
+		if (flash_param_set())
+			server_send_printf(conn, "REMOTE IP ADDRESS=%s, PORT=%d\r\n"MSG_OK, argv[1], argv[2]);
+		else
+			server_send_string(conn, "SET REMOTE IP "MSG_ERROR);
+
 		os_delay_us(10000);
 		system_restart();
 	} 
@@ -546,7 +546,7 @@ void config_cmd_restore(server_conn_data *conn, uint8_t argc, char *argv[]){
 	config_default_sta_hostname(restore);
 	config_default_flash_param(restore);
 
-	espbuff_send_string(conn, MSG_OK);
+	server_send_string(conn, MSG_OK);
 	os_delay_us(10000);
 	system_restart();
 }
@@ -631,7 +631,7 @@ void config_parse(server_conn_data *conn, char *buf, int len) {
 		return;
 
 	if (argc == 0) {
-		espbuff_send_string(conn, MSG_OK);
+		server_send_string(conn, MSG_OK);
 	} else {
 		argc--;	// to mimic C main() argc argv
 		for (i = 0; config_commands[i].command; ++i) {
@@ -641,7 +641,7 @@ void config_parse(server_conn_data *conn, char *buf, int len) {
 			}
 		}
 		if (!config_commands[i].command)
-			espbuff_send_string(conn, MSG_INVALID_CMD);
+			server_send_string(conn, MSG_INVALID_CMD);
 	}
 	config_parse_args_free(argc, argv);
 	os_free(lbuf);

@@ -30,6 +30,9 @@
 #define MAX_ARGS		12
 #define MSG_BUF_LEN		128
 
+#define HIGH  1
+#define LOW   0
+#define SET_GPIO(BIT, STATE) ( STATE ? gpio_output_set(BIT, 0, BIT, 0) : gpio_output_set(0, BIT, BIT, 0) )
 
 typedef struct config_cmds {
 	char *command;

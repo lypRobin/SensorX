@@ -39,8 +39,8 @@ struct server_conn_data {
 };
 
 void ICACHE_FLASH_ATTR server_init(int port);
-sint8  ICACHE_FLASH_ATTR espbuff_send(server_conn_data *conn, const char *data, uint16 len);
-sint8  ICACHE_FLASH_ATTR espbuff_send_string(server_conn_data *conn, const char *data);
-sint8  ICACHE_FLASH_ATTR espbuff_send_printf(server_conn_data *conn, const char *format, ...);
+sint8  ICACHE_FLASH_ATTR server_send(server_conn_data *conn, const char *data, uint16 len);
+sint8  ICACHE_FLASH_ATTR server_send_string(server_conn_data *conn, const char *data);
+sint8  ICACHE_FLASH_ATTR server_send_printf(server_conn_data *conn, const char *format, ...);
 
 #endif /* __SERVER_H__ */

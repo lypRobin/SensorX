@@ -58,9 +58,10 @@ static void ICACHE_FLASH_ATTR recv_task(os_event_t *events)
 			client_connect(uartbuffer);
 		}
 		
-		for (i = 0; i < MAX_CONN; ++i)
-			if (server_conn[i].conn) 
-				espbuff_send(&server_conn[i], uartbuffer, length);		
+		if(length >=6 &&  uartbuffer[0] == '+' && uartbuffer[1] == '+' && uartbuffer[2] == '+' && uartbuffer[0] == 'G' && uartbuffer[1] == 'E' && uartbuffer[2] == 'T')
+			for (i = 0; i < MAX_CONN; ++i)
+				if (server_conn[i].conn) 
+					server_send(&server_conn[i], uartbuffer, length);		
 	}
 
 	if(UART_RXFIFO_FULL_INT_ST == (READ_PERI_REG(UART_INT_ST(UART0)) & UART_RXFIFO_FULL_INT_ST))

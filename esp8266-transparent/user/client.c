@@ -62,7 +62,7 @@ sint8  ICACHE_FLASH_ATTR client_send_printf(client_conn_data *conn, const char *
 	len = ets_vsnprintf(conn->txbuffer, MAX_CLIENT_TXBUFFER-1, format, al);
 	va_end(al);
 	if (len <0)  {
-		DEBUG_SEND_STRING("espbuff_send_printf: txbuffer full\n");
+		DEBUG_SEND_STRING("client_send_printf: txbuffer full\n");
 		return ESPCONN_ARG;
 	}
 	conn->txbufferlen = len;
@@ -251,19 +251,19 @@ void client_connect(char *data){
     os_timer_arm(&timer, CONNECT_TIME, 0);
 }
 
-void client_config(char *addr, uint32_t port){
-	if(addr == NULL || port > 65535 || port < 0)
-		return;
+// void client_config(char *addr, uint32_t port){
+// 	if(addr == NULL || port > 65535 || port < 0)
+// 		return;
 
-	flash_param_t *flash_param = flash_param_get();
-	if(flash_param->remote_ip == ipaddr_addr(addr) && flash_param->remote_ip != IPADDR_NONE && flash_param->remote_port == port) // same
-		return;
-	else{
-		flash_param->remote_ip = ipaddr_addr("192.168.1.102");
-		flash_param->remote_port = 11311;//port;
-		flash_param_set();
-	}
-}
+// 	flash_param_t *flash_param = flash_param_get();
+// 	if(flash_param->remote_ip == ipaddr_addr(addr) && flash_param->remote_ip != IPADDR_NONE && flash_param->remote_port == port) // same
+// 		return;
+// 	else{
+// 		flash_param->remote_ip = ipaddr_addr("192.168.1.102");
+// 		flash_param->remote_port = 11311;//port;
+// 		flash_param_set();
+// 	}
+// }
 
 
 void ICACHE_FLASH_ATTR client_init() {
