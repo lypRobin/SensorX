@@ -21,8 +21,9 @@ import sys
 from telnetlib import Telnet 
 import subprocess
 import time
+from SensorX import *
 
-USAGE = 'Usage: wifi_uploader.py host hex_directory [port]'
+USAGE = 'Usage: wifi_uploader.py SensorX_addr hex_directory [port]'
 
 # parameters: host (string): ip host address
 #			  port (int): port
@@ -52,8 +53,9 @@ def sx_avr_uploader(host, port, hex_dir):
 
 	except:
 		print "AVR command error."
-		return
+		return False
 	print MSG[res]
+	return True
 
 # parameters: ipaddr (string):  ip address
 # return value: True: valid ip address
@@ -86,26 +88,26 @@ def sx_uploader(host, hex_dir, port=23):
 		print "Invalid port."
 		print USAGE
 		return
-
+	addr = (host, str(port))
+	sx = SensorX(addr)
 	try:
-		print "Connecting to SensorX: " + host + "..."
-		tn = Telnet(host, port, 5)
-		# tn.set_debuglevel(10)
-		print "Connected."
-		tn.write("+++AT\n")
-		if tn.read_until("OK", 3):
-			print "Communication OK."
-			tn.write("+++AT GPIO2 2 100")
-			time.sleep(0.4)
-			print "Reset SensorX OK."
-			sx_avr_uploader(host, port, hex_dir)
-		else:
-			print "Communication ERROR."
+		print "Connecting to SensorX: " + host + " ..."
+		if not sx.connect():
+			return
+		print "Connect OK."
+		if not sx.reset_sensorx():
+			sx.close()
+			return
+		time.sleep(0.4)
+		print "Reset SensorX OK."
+		if not sx_avr_uploader(host, port, hex_dir):
+			sx.close()
 			return
 
-		tn.close()
+		sx.close()
 	except:
-		print "Cannot connect to host: " + host
+		print "Upload to SensorX: %s failed." % host
+		sx.close()
 		return
 
 
@@ -113,11 +115,9 @@ def sx_uploader(host, hex_dir, port=23):
 if __name__ == '__main__':
 	argc = len(sys.argv)
 
-	if argc < 3 or argc > 4:
+	if argc < 3 or argc > 4 or sys.argv[1] == '-h' or sys.argv[1] == '--help':
 		print USAGE
 		sys.exit()
-	if sys.argv[1] == '-h' or sys.argv[1] == '--help':
-		print USAGE
 
 	HOST = sys.argv[1]
 
