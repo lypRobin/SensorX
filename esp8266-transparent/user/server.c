@@ -101,36 +101,28 @@ static void ICACHE_FLASH_ATTR server_send_cb(void *arg) {
 }
 
 static void ICACHE_FLASH_ATTR server_recv_cb(void *arg, char *data, unsigned short len) {
-	int x;
-	char *p, *e;
-		server_conn.conn = (struct espconn*)arg;
+	server_conn.conn = (struct espconn*)arg;
 	if (server_conn.conn==NULL) 
 		return;
 
 	if (len >= 5 && data[0] == '+' && data[1] == '+' && data[2] == '+' && data[3] =='A' && data[4] == 'T') 
 		config_parse(&server_conn, data, len);
-	else if (len >= 4 && data[0] == 'G' && data[1] == 'E' && data[2] == 'T' && data[3] =='=')
-		uart0_tx_buffer(data, len);
-	else
-		return;
+	else 
+		uart0_tx_buffer(data, len);  // DO NOT CHANGE if want to uploader program wirelessly
 }
 
 static void ICACHE_FLASH_ATTR server_reconn_cb(void *arg, sint8 err) {
-	if (server_conn.conn != (struct espconn*)arg) 
-		return;
+	// if (server_conn.conn != (struct espconn*)arg) 
+	// 	return;
 	//ToDo: figure something out.
 }
 
 static void ICACHE_FLASH_ATTR server_disconn_cb(void *arg) {
 	//Just look at all the sockets and kill the slot if needed.
-
+	server_conn.conn = (struct espconn*)arg;
 	if (server_conn.conn!=NULL) {
-		if (server_conn.conn->state==ESPCONN_NONE || server_conn.conn->state==ESPCONN_CLOSE) {
+		if (server_conn.conn->state==ESPCONN_NONE || server_conn.conn->state==ESPCONN_CLOSE) 
 			server_conn.conn = NULL;
-			server_conn.txbuffer = NULL;
-			server_conn.txbufferlen = 0;
-			server_conn.readytosend = true;
-		}
 	}
 
 	os_timer_disarm(&connect_timer);  // disable led4 blink
@@ -149,6 +141,7 @@ void server_connect_welcome(server_conn_data *conn){
 	server_send_string(conn, wel);
 }
 
+// led blink if sensorx is connected
 bool led4_flag = FALSE;
 static void ICACHE_FLASH_ATTR led4_blink(void *arg){
 	os_timer_disarm(&connect_timer);
@@ -166,9 +159,7 @@ static void ICACHE_FLASH_ATTR led4_blink(void *arg){
 static void ICACHE_FLASH_ATTR server_connect_cb(void *arg) {
 	struct espconn *conn = arg;
 
-	server_conn.conn = NULL;
-	os_bzero(txbuffer, sizeof(txbuffer));
-	server_conn.txbuffer = txbuffer;
+	server_conn.conn = conn;
 	server_conn.txbufferlen = 0;
 	server_conn.readytosend = true;
 

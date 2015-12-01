@@ -27,7 +27,7 @@
 #include "flash_param.h"
 
 os_event_t	recv_task_queue[RECEIVE_TASK_QUEUE_LEN];
-extern  server_conn_data server_conn[MAX_CONN];
+extern  server_conn_data server_conn;
 extern client_conn_data client_conn;
 
 #define MAX_UARTBUFFER (MAX_TXBUFFER/4)
@@ -58,10 +58,8 @@ static void ICACHE_FLASH_ATTR recv_task(os_event_t *events)
 			client_connect(uartbuffer);
 		}
 		
-		if(length >=6 &&  uartbuffer[0] == '+' && uartbuffer[1] == '+' && uartbuffer[2] == '+' && uartbuffer[0] == 'G' && uartbuffer[1] == 'E' && uartbuffer[2] == 'T')
-			for (i = 0; i < MAX_CONN; ++i)
-				if (server_conn[i].conn) 
-					server_send(&server_conn[i], uartbuffer, length);		
+		if (server_conn.conn) 
+			server_send(&server_conn, uartbuffer, length);		
 	}
 
 	if(UART_RXFIFO_FULL_INT_ST == (READ_PERI_REG(UART_INT_ST(UART0)) & UART_RXFIFO_FULL_INT_ST))
