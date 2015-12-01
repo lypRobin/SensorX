@@ -23,7 +23,7 @@ import subprocess
 import time
 from SensorX import *
 
-USAGE = 'Usage: wifi_uploader.py SensorX_addr hex_directory [port]'
+USAGE = 'Usage: SXUploader.py SensorX_addr hex_directory [port]'
 
 # parameters: host (string): ip host address
 #			  port (int): port

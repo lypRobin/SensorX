@@ -7,24 +7,24 @@ class SensorX():
 
 	def __init__(self, addr):
 
-		self.conn = Telnet()
-		self.address = addr
-		self.isconnected = False
+		self._conn = Telnet()
+		self._address = addr
+		self._isconnected = False
 
-		self.mode = "3"
-		self.ip = ""
-		self.sta_ssid = ""
-		self.sta_hostname = ""
-		self.ap_ip = ""
-		self.ap_ssid = ""
-		self.remote_addr = ""
-		self.serial = ""
-		self.mac = ""		
+		self._mode = "3"
+		self._ip = ""
+		self._sta_ssid = ""
+		self._sta_hostname = ""
+		self._ap_ip = ""
+		self._ap_ssid = ""
+		self._remote_addr = ""
+		self._serial = ""
+		self._mac = ""		
 
 	# parameters: ipaddr (string):  ip address
 	# return value: True: valid ip address
 	#				False: invalid ip address
-	def check_address(ipaddr):
+	def check_address(self, ipaddr):
 		'''check ip address available.'''
 
 		print "checking ip."
@@ -44,148 +44,116 @@ class SensorX():
 		return True
 
 
-	def connect(self):
-		print "connecting..."
-		if not check_address(addr):
-			print "[Error]: Invalid SensorX ip address."
-		try:
-			self.conn = Telnet(self.address[0], self.address[1], 3)
-			if not self.conn.read_until("welcome", 3):
-				print "[Error]: Connect to SensorX failed."
-				return False
-			self.isconnected = True
-		except:
-			print "[Error]: Communicate to SensorX failed."
-			self.conn.close()
-			self.isconnected = False
-			return False
-		return True
-
-	def close(self):
-		self.conn.close()
-		self.conn = None
-		self.isconnected = False
-
-
 	def get_status(self):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return None
 		try:
-			if not self.conn.read_until("welcome", 3):
+			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return None
-			self.conn.write("+++AT STATUS\n")
-			lines = self.conn.read_all().split('\n')
+			self._conn.write("+++AT STATUS\n")
+			lines = self._conn.read_all().split('\n')
 			if "OK" not in lines:
 				print "[Error]: Communicate to SensorX failed."
 			for line in lines:
 				if "MODE" in line:
-					self.mode = line.split('=')[1]
+					self._mode = line.split('=')[1]
 				if "STA IP" in line:
-					self.ip = line.split('=')[1]
+					self._ip = line.split('=')[1]
 				if "STA SSID" in line:
-					self.sta_ssid = line.split('=')[1]
+					self._sta_ssid = line.split('=')[1]
 				if "STA HOSTNAME" in line:
-					self.sta_hostname = line.split('=')[1]
+					self._sta_hostname = line.split('=')[1]
 				if "AP IP" in line:
-					self.ap_ip = line.split('=')[1]
+					self._ap_ip = line.split('=')[1]
 				if "AP SSID" in line:
-					self.ap_ssid = line.split('=')[1]
+					self._ap_ssid = line.split('=')[1]
 				if "REMOTE" in line:
 					ip = line.split('=')[1].split(',')[0]
 					port = line.split('=')[2]
 					if "255.255.255.255" in line:
 						ip = ""
 						port = "11311"
-					self.remote_addr = [ip, port]
+					self._remote_addr = [ip, port]
 				if "Serial" in line:
-					self.serial = line.split('=')[1]
-			return [mode, self.ip, self.sta_ssid, self.sta_hostname, self.ap_ip, self.ap_ssid, self.remote_addr, self.serial]
+					self._serial = line.split('=')[1]
+			return [mode, self._ip, self._sta_ssid, self._sta_hostname, self._ap_ip, self._ap_ssid, self._remote_addr, self._serial]
 		except:
 			print "[Error]: Communicate to SensorX failed."
 			return None
 
+	def connect(self):
+		print "connecting..."
+		if not self.check_address(self._address):
+			print "[Error]: Invalid SensorX ip address."
+		try:
+
+			self._conn = Telnet(self._address[0], self._address[1], 3)
+			if not self._conn.read_until("welcome", 3):
+				print "[Error]: Connect to SensorX failed."
+				return False
+			self._isconnected = True
+			if self.get_status() == None:
+				return False
+		except:
+			print "[Error]: Communicate to SensorX failed."
+			self._conn.close()
+			self._isconnected = False
+			return False
+		return True
+
+	def close(self):
+		self._conn.close()
+		self._conn = None
+		self._isconnected = False
+
+
+	def is_connected():
+		if self._isconnected:
+			return True
+		else:
+			return False
+
 
 	def get_mode(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX mode failed."
-			return
-		else:
-			return s[0]
+		return self._mode
 	 
-
 	def get_ip(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX sta ip failed."
-			return
-		else:
-			return s[1]
+		return self._ip
 
 	def get_sta_ssid(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX sta ssid failed."
-			return
-		else:
-			return s[2]
+		return self._sta_ssid
 
 	def get_sta_hostname(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX sta hostname failed."
-			return
-		else:
-			return s[3]
+		return self._sta_hostname
 
 	def get_ap_ip(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX ap ip failed."
-			return
-		else:
-			return s[4]
+		return self._ap_ip
 
 	def get_ap_ssid(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX ap ssid failed."
-			return
-		else:
-			return s[5]
+		return self._ap_ssid
 
 	# return a list
 	def get_remote_addr(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX remote ip failed."
-			return
-		else:
-			return s[6]
+		return self._remote_addr
 
 	# return serial list in: [baud, data_bits, stop_bit, check_bit]
 	def get_serial_info(self):
-		s = get_status(addr)
-		if s == None:
-			print "[Error]: Get SensorX sta ip failed."
-			return 
-		else:
-			return s[7].split(' ')
+		return self._serial
 
 	####################  SET SensorX  ##################
 	# set sta ssid and password
 	def set_sta(self, data):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		try:
 			ssid = data[0]
 			password = data[1]
-			self.conn.write("+++AT STA " + ssid + " " + password + "\n")
+			self._conn.write("+++AT STA " + ssid + " " + password + "\n")
 
-			if not self.conn.read_until("OK", 3): 
+			if not self._conn.read_until("OK", 3): 
 				print "[Error]: Set STA failed."
 				return False
 		except:
@@ -195,21 +163,21 @@ class SensorX():
 
 
 	def set_sta_ip(self, data):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		if not check_ip(data):
 			print "[Error]: Set Sta ip: Invalid ip."
 			return False
 		try:
-			self.conn = Telnet(addr[0], addr[1], 3)
-			if not self.conn.read_until("welcome", 3):
+			self._conn = Telnet(addr[0], addr[1], 3)
+			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
 
-			self.conn.write("+++AT STAIP " + data + "\n")
+			self._conn.write("+++AT STAIP " + data + "\n")
 
-			if not self.conn.read_until("OK", 3):
+			if not self._conn.read_until("OK", 3):
 				print "[Error]: Set STA IP failed."
 		except:
 			print "[Error]: Communicate to SensorX failed."
@@ -218,20 +186,20 @@ class SensorX():
 
 
 	def set_sta_hostname(self, data):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		if ' ' in data:
 			print "[Error]: Set Sta hostname: Invalid name."
 			return False
 		try:
-			if not self.conn.read_until("welcome", 3):
+			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
 
-			self.conn.write("+++AT STAHOSTNAME " + data + "\n")
+			self._conn.write("+++AT STAHOSTNAME " + data + "\n")
 
-			if not self.conn.read_until("OK", 3):
+			if not self._conn.read_until("OK", 3):
 				print "[Error]: Set STA HOSTNAME failed."
 				return False
 		except:
@@ -241,20 +209,20 @@ class SensorX():
 
 
 	def set_ap_ssid(self, data):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		if ' ' in data:
 			print "[Error]: Set Sta hostname: Invalid name."
 			return False
 		try:
-			if not self.conn.read_until("welcome", 3):
+			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
 
-			self.conn.write("+++AT AP " + data + "\n")
+			self._conn.write("+++AT AP " + data + "\n")
 
-			if not self.conn.read_until("OK", 3):
+			if not self._conn.read_until("OK", 3):
 				print "[Error]: Set AP SSID failed."
 				return False
 		except:
@@ -264,21 +232,21 @@ class SensorX():
 
 
 	def set_name(self, data):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		if ' ' in data:
 			print "[Error]: Set Sta hostname: Invalid name."
 			return False
 		try:
-			if not self.conn.read_until("welcome", 3):
+			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
 
-			self.conn.write("+++AT AP " + data + "\n")
-			if self.conn.read_until("OK", 3):
-				self.conn.write("+++AT STAHOSTNAME " + data + "\n")
-				if not self.conn.read_until("OK", 3): 
+			self._conn.write("+++AT AP " + data + "\n")
+			if self._conn.read_until("OK", 3):
+				self._conn.write("+++AT STAHOSTNAME " + data + "\n")
+				if not self._conn.read_until("OK", 3): 
 					print "[Error]: Set SensorX NAME failed."
 					return False
 			else:
@@ -291,7 +259,7 @@ class SensorX():
 
 
 	def set_remote_addr(self, data):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		if not check_ip(data[0]):
@@ -301,14 +269,14 @@ class SensorX():
 			print "[Error]: Set remote ip: Invalid port."
 			return False
 		try:
-			if not self.conn.read_until("welcome", 3):
+			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
 
-			self.conn.write("+++AT AP " + data + "\n")
-			if self.conn.read_until("OK", 3):
-				self.conn.write("+++AT STAHOSTNAME " + data + "\n")
-				if not self.conn.read_until("OK", 3):
+			self._conn.write("+++AT AP " + data + "\n")
+			if self._conn.read_until("OK", 3):
+				self._conn.write("+++AT STAHOSTNAME " + data + "\n")
+				if not self._conn.read_until("OK", 3):
 					print "[Error]: Set SensorX NAME failed."
 					return False
 			else:
@@ -321,12 +289,12 @@ class SensorX():
 
 
 	def reset_sensorx(self):
-		if not self.isconnected:
+		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return False
 		try:
-			self.conn.write("+++AT GPIO2 2 100")
-			if not self.conn.read_until("OK", 3):
+			self._conn.write("+++AT GPIO2 2 100")
+			if not self._conn.read_until("OK", 3):
 				print "[Error]: Reset SensorX failed."
 				return False
 		except:
