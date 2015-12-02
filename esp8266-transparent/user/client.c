@@ -123,7 +123,7 @@ static void ICACHE_FLASH_ATTR client_connect_cb(void *arg){
 	for(; cnt < 3; cnt++){
 		ret = client_send(&client_conn, (const char *)client_conn.txbuffer, client_conn.txbufferlen);
 		if(ret != ESPCONN_OK){
-			uart0_send_string("POST=ERROR\n");
+			uart0_send_string("+++POST=ERROR\n");
 			os_delay_us(10000);
 		}
 		else
@@ -131,14 +131,20 @@ static void ICACHE_FLASH_ATTR client_connect_cb(void *arg){
 	}
 }
 
-
+static int connect_time = 0;
 static void ICACHE_FLASH_ATTR client_reconn_cb(void *arg, sint8 err){
 	client_conn.conn = (struct espconn *)arg;
 	DEBUG_SEND_STRING("entry in reconnect\n");
+	if(connect_time > 2){
+		os_timer_disarm(&timer);
+		connect_time = 0;
+		return;
+	}
+
+	os_timer_arm(&timer, CONNECT_TIME, 0);
 }
 
 static void ICACHE_FLASH_ATTR client_connected_check(void *arg){
-	static uint8_t connect_time = 0;
 	DEBUG_SEND_PRINTF("client connect %d times.\n", connect_time);
 	os_timer_disarm(&timer);
 	
@@ -148,7 +154,7 @@ static void ICACHE_FLASH_ATTR client_connected_check(void *arg){
 		flash_param_t *flash_param = flash_param_get();
 		struct espconn *client_espconn = (struct espconn *)os_zalloc(sizeof(struct espconn));
 		if(client_espconn == NULL){
-			uart0_send_string("POST=ERROR\n");
+			uart0_send_string("+++POST=ERROR\n");
 			DEBUG_SEND_STRING("Alloc failed.\n");
 			return;
 		}
@@ -224,7 +230,7 @@ static void ICACHE_FLASH_ATTR client_connected_check(void *arg){
 	connect_time++;
 	// try 3 times connection
 	if(connect_time > 2){
-		uart0_send_string("POST=ERROR\n");
+		uart0_send_string("+++POST=ERROR\n");
 		wifi_station_disconnect();
 		connect_time = 0;
 		return;

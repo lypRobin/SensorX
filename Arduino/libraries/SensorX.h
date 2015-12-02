@@ -13,6 +13,7 @@
 #define SENSOR_GAS		7
 #define SENSOR_HUMAN	8
 #define SENSOR_FIRE		9
+#define SENSOR_LED		10
 
 #define CMD_ERROR		-1
 #define CMD_PARSE_ERROR	-2
@@ -29,7 +30,7 @@
 #define MAX_RX_BUFFER		256
 #define MAX_TX_BUFFER		256
 
-#define MAX_POST	16
+#define MAX_IDS		16
 
 typedef struct SensorItem{
 	uint8_t pin;
@@ -37,37 +38,45 @@ typedef struct SensorItem{
 	union {
 		char valuebool; 
 		int valueint; 
-		double valuefloat; 
+		double valuefloat;
 	};
 	SensorItem *next;
 }SensorItem;
 
+typedef struct CmdInfo{
+	uint8_t type;  // cmd type
+	uint8_t id;    // cmd id
+}CmdInfo;
 
 class SensorX{
 public:
 virtual SensorX(Serial *com);
 virtual ~SensorX();
 
-virtual	int readFromHost();
+virtual	int readFromHost(char *inbuf_cmd);
 virtual	int writeToHost();
 virtual	int comAvailable();
-virtual	char* getTime();
-	int newSensor();
-	int addSensor(SensorItem *sensor);
-	int deletSensor(uint8_t type, uint8_t id);
-	int deletAllSensors();
+	int newSensor(uint8_t pin, uint8_t type, int valueint);
+	int newSensor(uint8_t pin, uint8_t type, double valuefloat);
+	int newSensor(uint8_t pin, uint8_t type, char valuebool);
+	bool addSensor(SensorItem *sensor);
+	bool deletSensor(uint8_t type, uint8_t pin);
+	bool deletAllSensors();
+	int processCmd(char *str);
 	uint8_t getSensorNum(){return _sensorNum};
+	int saveSensorData(uint8_t pin, uint8_t type, int valueint);
+	int saveSensorData(uint8_t pin, uint8_t type, double valuefloat);
+	int saveSensorData(uint8_t pin, uint8_t type, char valuebool);
+	bool addPost(uint8_t id);
+	bool deletPost(uint8_t id);
 
 private:
-virtual	int setTime(char *time);
-	bool deletPost(int id);
-	int parseCmd(char *str, int opt);
-	bool addPost();
+	int parseCmd(char *str);
 	SensorItem *_sQueue;
 	uint8_t _sensorNum;
 	Serial *_com;
-	uint8_t _post[MAX_POST];
-	char _time[18];
+	uint8_t _post[MAX_IDS];
+	aJsonObject *_aJson;
 };
 
 #endif

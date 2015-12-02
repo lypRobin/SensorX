@@ -45,6 +45,7 @@ class SensorX():
 
 
 	def get_status(self):
+		print "get status"
 		if not self._isconnected:
 			print "[Error]: SensorX is not connected."
 			return None
@@ -88,14 +89,12 @@ class SensorX():
 		if not self.check_address(self._address):
 			print "[Error]: Invalid SensorX ip address."
 		try:
-
 			self._conn = Telnet(self._address[0], self._address[1], 3)
+			print "hahaha"
 			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
 			self._isconnected = True
-			if self.get_status() == None:
-				return False
 		except:
 			print "[Error]: Communicate to SensorX failed."
 			self._conn.close()
