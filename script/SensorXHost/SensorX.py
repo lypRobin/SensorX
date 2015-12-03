@@ -292,7 +292,12 @@ class SensorX():
 			print "[Error]: SensorX is not connected."
 			return False
 		try:
-			self._conn.write("+++AT GPIO2 2 100")
+			self._conn.write("+++AT GPIO2 2 100")  #  reset arduino
+			if not self._conn.read_until("OK", 3):
+				print "[Error]: Reset SensorX failed."
+				return False
+
+			self._conn.write("+++AT RESET")  #reset esp8266
 			if not self._conn.read_until("OK", 3):
 				print "[Error]: Reset SensorX failed."
 				return False
