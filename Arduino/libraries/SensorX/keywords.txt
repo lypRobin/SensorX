@@ -1,0 +1,62 @@
+#######################################
+# Syntax Coloring Map For aJson
+# Use TAB to seperate identifiers
+#         and KEYWORD specifiers!
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+SensorItem	KEYWORD1
+SensorX	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+SensorItem 	KEYWORD2
+setup	KEYWORD2
+read	KEYWORD2
+write	KEYWORD2
+getValue	KEYWORD2
+setValue	KEYWORD2
+getObjectItem	KEYWORD2
+setPin	KEYWORD2
+getPin	KEYWORD2
+setType	KEYWORD2
+getType	KEYWORD2
+setValueType  KEYWORD2
+getValueType  KEYWORD2
+setThresholdValue	KEYWORD2
+getThresholdValue	KEYWORD2
+next	KEYWORD2
+
+SensorX	KEYWORD2
+readFromHost	KEYWORD2
+setup	KEYWORD2
+comAvailable	KEYWORD2
+processCmd	KEYWORD2
+getSensorNum		KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+VALUE_NULL		LITERAL1
+VALUE_BOOL		LITERAL1	
+VALUE_INT		LITERAL1
+VALUE_FLOAT		LITERAL1
+VALUE_STRING	LITERAL1
+
+SENSOR_NULL  	LITERAL1
+SENSOR_TEMP		LITERAL1
+SENSOR_HUMI		LITERAL1
+SENSOR_DUST		LITERAL1
+SENSOR_LIGHT	LITERAL1
+SENSOR_HCHO		LITERAL1
+SENSOR_CO2		LITERAL1
+SENSOR_GAS		LITERAL1
+SENSOR_HUMAN	LITERAL1
+SENSOR_FIRE		LITERAL1
+SENSOR_LED		LITERAL1
+SENSOR_PUMP		LITERAL1
+
