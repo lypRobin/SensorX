@@ -69,7 +69,7 @@ POST:
 			}
 */
 
-#include <aJSON.h>
+#include "../aJson/aJSON.h"
 
 #define SENSOR_NULL  	0
 // input sensor
@@ -124,8 +124,8 @@ public:
 	uint8_t getType() { return _type;}
 	void setValueType(uint8_t val_type) { _val_type = val_type; }
 	uint8_t getValueType() { return _val_type; }
-	void setThresholdValue(int max, int min) { _max_value = max; _min_value = min; }
-	void getThresholdValue(int *max, int *min) { *max = _max_value; *min = _min_value; }
+	void setThresholdValue(int max, int min) { _max_val = max; _min_val = min; }
+	void getThresholdValue(int *max, int *min) { *max = _max_val; *min = _min_val; }
 
 	SensorItem *next;
 
@@ -139,41 +139,43 @@ private:
 		int vint; 
 		double vfloat;
 	}_value;
-	int _max_value;
-	int _min_value;
+	int _max_val;
+	int _min_val;
 };
 
 
 class SensorX{
 public:
-virtual SensorX(HardwareSerial *com);
-virtual ~SensorX();
+	SensorX(HardwareSerial *com);
+	// ~SensorX();
 
-virtual	int readFromHost(char *inbuf_json);
-virtual	bool writeToHost();
-virtual void setup(uint32_t baudrate);
-	int comAvailable() {rentur _com->available()};
+	int readFromHost(char *inbuf_json);
+	bool writeToHost();
+	void setup(uint32_t baudrate);
+	int comAvailable() { return _com->available(); }
 	int processCmd(char *str);
-	uint8_t getSensorNum(){return _sensorNum};	
+	uint8_t getSensorNum(){ return _sensorNum; }	
 private:
 	SensorItem* newSensor(uint8_t pin, uint8_t type, uint8_t val_type);
 	bool addSensor(SensorItem *sensor);
-	SensorItem* SensorX::deleteSensor(uint8_t pin);
+	SensorItem* deleteSensor(uint8_t pin);
+
 	bool deleteAllSensors();
 
 	int saveSensorData(uint8_t pin, int valueint);
 	int saveSensorData(uint8_t pin, double valuefloat);
 	int saveSensorData(uint8_t pin, char valuebool);
 	void addSensorDataToJson(aJsonObject *ajson);
-	bool SensorX::deleteUnusedSensor(uint8_t pin);
-	bool SensorX::addNewSensor(uint8_t pin, uint8_t type, uint8_t val_type;
-	void SensorX::processSensor();
+	// SensorItem * deleteUnusedSensor(uint8_t pin);
+	bool addNewSensor(uint8_t pin, uint8_t type, uint8_t val_type);
+	void processSensor();
+	bool checkAlarm(SensorItem *s);
 	uint8_t addPost();
 	bool deletePost(uint8_t id);
-	int parseCmd(char *str, int *command);
+	int parseCmd(char *str, int *command, int *id);
 	SensorItem *_sQueue;
 	uint8_t _sensorNum;
-	Serial *_com;
+	HardwareSerial *_com;
 	uint8_t _post[MAX_IDS];
 	aJsonObject *_aJson;
 };

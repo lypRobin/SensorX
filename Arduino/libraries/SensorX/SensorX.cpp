@@ -7,34 +7,33 @@ SensorItem::SensorItem(uint8_t pin, uint8_t type, uint8_t val_type){
 	_type = type;
 	_val_type = val_type;
 	_value.vfloat = 0;
-	_next = NULL
-	_max_val = 32767
+	next = NULL;
+	_max_val = 32767;
 	_min_val = -32768;
-	_alarm = false;
 }
 
 
 // SensorX
 SensorX::SensorX(HardwareSerial *com){
-	_sQueue = NULL
+	_sQueue = NULL;
 	_sensorNum = 0;
 	_com = com;
 	_aJson = NULL;
-	int i = ;
+	int i = 0;
 	for (;i < MAX_IDS; i++){
 		_post[i] = 0;
 	}
 }
 
-SensorX::~SensorX(){
-	if(_sQueue != NULL)
-		deleteAllSensors(_sQueue);
+// SensorX::~SensorX(){
+// 	if(_sQueue != NULL)
+// 		deleteAllSensors();
 
-	if(_aJson != NULL)
-		aJson.deleteItem(_aJson);	
-	_sQueue = NULL;
-	_aJson = NULL;
-}
+// 	if(_aJson != NULL)
+// 		aJson.deleteItem(_aJson);	
+// 	_sQueue = NULL;
+// 	_aJson = NULL;
+// }
 
 uint8_t SensorX::addPost(){
 	int i = 0;
@@ -64,7 +63,7 @@ int SensorX::saveSensorData(uint8_t pin, int valueint){
 		return 0;
 	SensorItem* s = _sQueue;
 	while(s){
-		if(s->getPin() == pin && s->getIOType() == OUTPUT){
+		if(s->getPin() == pin && s->getType() >= 100){
 			s->setValue(valueint);
 			return -1;
 		}
@@ -77,7 +76,7 @@ int SensorX::saveSensorData(uint8_t pin, double valuefloat){
 		return 0;
 	SensorItem* s = _sQueue;
 	while(s){
-		if(s->getPin() == pin && s->getIOType() == OUTPUT){
+		if(s->getPin() == pin && s->getType() >= 100){
 			s->setValue(valuefloat);
 			return -1;
 		}
@@ -90,7 +89,7 @@ int SensorX::saveSensorData(uint8_t pin, char valuebool){
 		return 0;
 	SensorItem* s = _sQueue;
 	while(s){
-		if(s->getPin() == pin && s->getIOType() == OUTPUT){
+		if(s->getPin() == pin && s->getType() >= 100){
 			s->setValue(valuebool);
 			return -1;
 		}
@@ -99,48 +98,7 @@ int SensorX::saveSensorData(uint8_t pin, char valuebool){
 }
 
 
-int SensorX::parseCmd(char *str, int *command){
-	aJsonObject* root = aJson.parse(str);
-	aJsonObject* cmd = aJson.getObjectItem(root, "CMD");
-	if (cmd == NULL)
-		return CMD_PARSE_ERROR;
-	if(!strcmp(cmd->valuestring, "POST")){
-		aJsonObject* post_id = aJson.getObjectItem(root, "ID");
-		if (deleteePost(post_id->valueint))
-			return CMD_OK;
-	}
-
-	if(!strcmp(cmd->valuestring, "DATA")){
-		*command = CMD_SEND_DATA;
-		return CMD_OK;
-	}
-
-	if(!strcmp(cmd->valuestring, "SET"))
-		*command = CMD_SET_DATA;
-		if(!aJson.getObjectItem(root, "PIN") || !aJson.getObjectItem(root, "TYPE") || !aJson.getObjectItem(root, "VALUE"))
-			return CMD_PARSE_ERROR;
-		return CMD_OK;
-	}
-
-	if(!strcmp(cmd->valuestring, "ADD"))
-		*command = CMD_ADD_SENSOR;
-		if(!aJson.getObjectItem(root, "PIN") || !aJson.getObjectItem(root, "TYPE"))
-			return CMD_PARSE_ERROR;
-		return CMD_OK;
-	}
-
-	if(!strcmp(cmd->valuestring, "DELETE"))
-		if(!aJson.getObjectItem(root, "PIN"))
-			return CMD_PARSE_ERROR;
-		*command = CMD_DELETE_SENSOR;
-		return CMD_OK;
-	}
-
-	return CMD_NULL;
-}
-
 void SensorX::addSensorDataToJson(aJsonObject *ajson){
-	aJson.addNumberToObject(ajson, "STATUS", CMD_OK);
 	SensorItem* s = _sQueue;
 	aJsonObject *pin_list, *value_list, *type_list;
 	aJson.addItemToObject(ajson, "PIN", pin_list = aJson.createArray());
@@ -164,16 +122,6 @@ void SensorX::addSensorDataToJson(aJsonObject *ajson){
 	}
 }
 
-bool SensorX::deleteUnusedSensor(uint8_t pin){
-	SensorItem *s = _sQueue;
-	while(s){
-		if(s->getPin() == pin)
-			return deleteSensor(s); 
-		s = s->next;
-	}
-	return false;
-}	
-
 bool SensorX::addNewSensor(uint8_t pin, uint8_t type, uint8_t val_type){
 	SensorItem *s = _sQueue;
 	while(s){
@@ -191,13 +139,19 @@ bool SensorX::addNewSensor(uint8_t pin, uint8_t type, uint8_t val_type){
 		if(s != NULL)
 			return addSensor(s);
 	}
-	
-	return false
+	return false;
 }
 
-void SensorX::processCmd(char *str){
-	int command = 0;
-	int ret = parseCmd(str, &command);
+int SensorX::processCmd(char *str){
+	aJsonObject* root = aJson.parse(str);
+	aJsonObject* cmd = aJson.getObjectItem(root, "CMD");
+	if (cmd == NULL)
+		return CMD_PARSE_ERROR;
+
+	aJsonObject* cmd_id = aJson.getObjectItem(root, "ID");
+	if(cmd_id == NULL)
+		return CMD_PARSE_ERROR;
+	int id = cmd_id->valueint;
 
 	if(_aJson != NULL){
 		aJson.deleteItem(_aJson);
@@ -205,31 +159,35 @@ void SensorX::processCmd(char *str){
 	}
 
 	_aJson = aJson.createObject();
-	if(command == CMD_SEND_DATA){
+
+	if(!strcmp(cmd->valuestring, "POST"))
+		if (deletePost(cmd_id->valueint))
+			return CMD_OK;
+
+	if(!strcmp(cmd->valuestring, "DATA")){
 		aJson.addStringToObject(_aJson, "CMD", "DATA");
 		aJson.addNumberToObject(_aJson,"ID", id);
-		if(ret <= 0){
-			aJson.addNumberToObject(_aJson, "STATUS", ret);
-			return;
-		}
-		addSensorDataToJson(_aJson)
+		addSensorDataToJson(_aJson);
+		aJson.addNumberToObject(_aJson, "STATUS", CMD_OK);
 	}
-	else if(command == CMD_SET_DATA){
+
+	if(!strcmp(cmd->valuestring, "SET")){
 		aJson.addStringToObject(_aJson, "CMD", "SET");
 		aJson.addNumberToObject(_aJson,"ID", id);
-		if(ret <= 0){
-			aJson.addNumberToObject(_aJson, "STATUS", ret);
-			return;
+		if(!aJson.getObjectItem(root, "PIN") || !aJson.getObjectItem(root, "TYPE") || !aJson.getObjectItem(root, "VALUE")){
+			aJson.addNumberToObject(_aJson,"STATUS", CMD_PARSE_ERROR);
+			return CMD_PARSE_ERROR;
 		}
-		aJsonObject* pin_list = aJson.getObjectItem(str, "PIN");
-		aJsonObject* type_list = aJson.getObjectItem(str, "TYPE");
-		aJsonObject* value_list = aJson.getObjectItem(str, "VALUE");
+
+		aJsonObject* pin_list = aJson.getObjectItem(root, "PIN");
+		aJsonObject* type_list = aJson.getObjectItem(root, "TYPE");
+		aJsonObject* value_list = aJson.getObjectItem(root, "VALUE");
 		unsigned char c1 = aJson.getArraySize(pin_list);
 		unsigned char c2 = aJson.getArraySize(type_list);
 		unsigned char c3 = aJson.getArraySize(value_list);
 		if(c1 != c2 || c1 != c3 || c2 != c3){
 			aJson.addNumberToObject(_aJson,"STATUS", CMD_PARSE_ERROR);
-			return;
+			return CMD_PARSE_ERROR;
 		}
 		int i = 0;
 		for(; i < (int)c1; i++){
@@ -239,70 +197,77 @@ void SensorX::processCmd(char *str){
 			if(type->type == aJson_Boolean){
 				if(!saveSensorData(pin->valueint, value->valuebool)){
 					aJson.addNumberToObject(_aJson,"STATUS", CMD_ERROR);
-					return;
+					return CMD_ERROR;
 				}
 			}
 			else if(type->type == aJson_Int){
 				if(!saveSensorData(pin->valueint, value->valueint)){
 					aJson.addNumberToObject(_aJson,"STATUS", CMD_ERROR);
-					return;
+					return CMD_ERROR;
 				}
 			}
 			else if(type->type == aJson_Float){
 				if(!saveSensorData(pin->valueint, value->valuefloat)){
 					aJson.addNumberToObject(_aJson,"STATUS", CMD_ERROR);
-					return;
+					return CMD_ERROR;
 				}
 			}
 		} // end for
 		aJson.addNumberToObject(_aJson,"STATUS", CMD_OK);
 	}
-	else if(command == CMD_ADD_SENSOR){
+
+	if(!strcmp(cmd->valuestring, "ADD")){
 		aJson.addStringToObject(_aJson, "CMD", "ADD");
 		aJson.addNumberToObject(_aJson,"ID", id);
-		if(ret <= 0){
-			aJson.addNumberToObject(_aJson, "STATUS", ret);
-			return;
+		if(!aJson.getObjectItem(root, "PIN") || !aJson.getObjectItem(root, "TYPE")){
+			aJson.addNumberToObject(_aJson,"STATUS", CMD_PARSE_ERROR);
+			return CMD_PARSE_ERROR;
 		}
 
-		aJsonObject *pin_list = aJson.getObjectItem(str, "PIN");
-		aJsonObject *type_list = aJson.getObjectItem(str, "TYPE");
+		aJsonObject *pin_list = aJson.getObjectItem(root, "PIN");
+		aJsonObject *type_list = aJson.getObjectItem(root, "TYPE");
+		aJsonObject *valtype_list = aJson.getObjectItem(root, "VALUETYPE");
 		unsigned char c1 = aJson.getArraySize(pin_list);
 		unsigned char c2 = aJson.getArraySize(type_list);
-		if(c1 != c2){
+		unsigned char c3 = aJson.getArraySize(valtype_list);
+		if(c1 != c2 || c1 != c3 || c2 != c3){
 			aJson.addNumberToObject(_aJson,"STATUS", CMD_PARSE_ERROR);
-			return;
+			return CMD_PARSE_ERROR;
 		}
 		int i = 0;
 		for(; i < c1; i++){
 			aJsonObject *pin = aJson.getArrayItem(pin_list, i);
 			aJsonObject *type = aJson.getArrayItem(type_list, i);
-			if(!addNewSensor(pin->valueint, type->valueint)){
+			aJsonObject *valtype = aJson.getArrayItem(valtype_list, i);
+			if(!addNewSensor(pin->valueint, type->valueint, valtype->valueint)){
 				aJson.addNumberToObject(_aJson,"STATUS", CMD_ERROR);
-				return;
+				return CMD_ERROR;
 			}
 		}
-		aJson.addNumberToObject(_aJson,"STATUS", OK);	
+		aJson.addNumberToObject(_aJson,"STATUS", CMD_OK);	
 	}
-	else if(command == CMD_DELETE_SENSOR){
+
+	if(!strcmp(cmd->valuestring, "DELETE")){
 		aJson.addStringToObject(_aJson, "CMD", "DELETE");
 		aJson.addNumberToObject(_aJson,"ID", id);
-		if(ret <= 0){
-			aJson.addNumberToObject(_aJson, "STATUS", ret);
-			return;
+		if(!aJson.getObjectItem(root, "PIN")){
+			aJson.addNumberToObject(_aJson, "STATUS", CMD_PARSE_ERROR);
+			return CMD_PARSE_ERROR;
 		}
-		aJsonObject *pin_list = aJson.getObjectItem(str, "PIN");
+
+		aJsonObject *pin_list = aJson.getObjectItem(root, "PIN");
 		unsigned char c1 = aJson.getArraySize(pin_list);
 		int i = 0;
 		for(; i < c1; i++){
 			aJsonObject *pin = aJson.getArrayItem(pin_list, i);
-			if(!deleteUnusedSensor(pin->valueint){
-				aJson.addNumberToObject(_aJson, "STATUS", CMD_ERROR);
-				return;
-			}
+			deleteSensor(pin->valueint);
+			aJson.addNumberToObject(_aJson, "STATUS", CMD_ERROR);
+			return CMD_ERROR;
 		}
 		aJson.addNumberToObject(_aJson, "STATUS", CMD_OK);
 	}
+	
+	return CMD_NULL;
 }
 
 int SensorX::readFromHost(char *inbuf_json){
@@ -315,14 +280,14 @@ int SensorX::readFromHost(char *inbuf_json){
 		return 0;
 
 	if(!strncmp(inbuf, "GET", 3)){
-		strncpy(inbuf_json, inbuf+4)
+		strcpy(inbuf_json, inbuf+4);
 		return -1;
 	}
 
-	if(!strncmp(str, "+++POST", 7)){
-		if(!strncmp(str+8, "ERROR", 5))
+	if(!strncmp(inbuf, "+++POST", 7)){
+		if(!strncmp(inbuf+8, "ERROR", 5))
 			return 0; 		// send from esp8266 to host error
-		strncpy(inbuf_json, inbuf+8)
+		strcpy(inbuf_json, inbuf+8);
 		return -1;
 	}
 
@@ -344,14 +309,15 @@ bool SensorX::writeToHost(){
 
 	strcpy(send_str, "+++GET=");
 	strcpy(send_str+7, json_str);
-	_com.println(send_str);
+	_com->println(send_str);
 
 	free(send_str);
 	aJson.deleteItem(_aJson);
 	_aJson = NULL;
-	return true
+	return true;
 }
 
+	
 SensorItem* SensorX::newSensor(uint8_t pin, uint8_t type, uint8_t val_type){
 	SensorItem *s = new SensorItem(pin, type, val_type);
 	return s;
@@ -411,7 +377,7 @@ bool SensorX::deleteAllSensors(){
 }
 
 void SensorX::setup(uint32_t baudrate){
-	_com.begin(baudrate);
+	_com->begin(baudrate);
 	if(_sQueue == NULL)
 		return;
 	SensorItem *s = _sQueue;
@@ -426,19 +392,23 @@ bool SensorX::checkAlarm(SensorItem *s){
 		return false;
 	int max = 0, min = 0;
 	s->getThresholdValue(&max, &min);
+	double val = 0;
 	switch(s->getValueType()){
 		case VALUE_INT:
-			int val = (int)s->getValue();
+			val = (int)s->getValue();
 			if(val >= max || val <= min)
 				return true;
+			break;
 		case VALUE_FLOAT:
-			double val = (double)s->getValue();
+			val = (double)s->getValue();
 			if(val >= max || val <= min)
-				return = true;
+				return true;
+			break;
 		case VALUE_BOOL:
-			char val = (char)s->getValue();
+			val = (char)s->getValue();
 			if(!val)
-				return = true;
+				return true;
+			break;
 		default:
 			break;
 	}
@@ -460,7 +430,7 @@ void SensorX::processSensor(){
 	while(s){
 		if(s->getType() >= 100)
 			s->write();
-		if(s->getIOType() < 100){
+		if(s->getType() < 100){
 			s->read();
 			if (checkAlarm(s)){
 				pin[i] = s->getPin();
