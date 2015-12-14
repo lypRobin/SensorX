@@ -1,8 +1,8 @@
 #ifndef _SENSORX_H_
 #define _SENSORX_H_
 /*
-JSON format:
-GET:
+JSON format that communicating between SensorX and host:
+GET command:
 	GET={
 		 "CMD":"DATA",
 		 "ID": id			
@@ -56,7 +56,7 @@ GET:
 			 "STATUS":-1/-2/0/100
 			}
 
-POST:
+POST command:
 	POST={
 			"CMD": "POST"
 			"ID": ID,
@@ -108,7 +108,7 @@ POST:
 
 class SensorItem{
 public:
-	SensorItem(uint8_t pin, uint8_t _type, uint8_t _val_type);
+	SensorItem(uint8_t pin, uint8_t type, uint8_t val_type);
 
 	virtual void setup() {}
 	virtual void read() {}
