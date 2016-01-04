@@ -3,34 +3,34 @@
 /*
 JSON format that communicating between SensorX and host:
 GET command:
-	GET={
+		{"HEAD":"GET",
 		 "CMD":"DATA",
 		 "ID": id			
 		}
 
-	+++GET={ 
-			 "CMD":"DATA",
-			 "ID": id,
-			 "STATUS":-1/-2/0/100        // state is int number
+		{ "HEAD":"+++GET"
+			"CMD":"DATA",
+			"ID": id,
+			"STATUS":-1/-2/0/100        // state is int number
 			"PIN": [pin1, pin2, pin3],
 			"TYPE": [type1, type2, type3],
-			 "value": [value1, value2, value2]
-	}
+			"VALUE": [value1, value2, value2]
+		}
 
-	GET={
+		{ "HEAD":"GET"
 		 "CMD":"SET",
 		 "ID": id,
 		 "PIN": [pin1, pin2, pin3],
 		 "TYPE": [type1, type2, type3],
 		 "value": [value1, value2, value2],			
-	}
-	+++GET={
+		}
+		{"HEAD":"+++GET"
 		 "CMD":"SET",
 		 "ID": id,
 		 "STATUS":-1/-2/0/100
-	}
+		}
 
-	GET={
+		{"HEAD":"GET",
 		 "CMD":"ADD",
 		 "ID": id,
 	 	 "PIN": [pin1, pin2],
@@ -38,35 +38,36 @@ GET command:
 		 "VALUETYPE": [type1, type2]
 		}
 
-	+++GET={ 
-			 "CMD":"ADD",
-			 "ID": id,
-			 "STATUS":-1/-2/0/100
-			}
+		{ "HEAD":"+++GET",
+		 "CMD":"ADD",
+		 "ID": id,
+		 "STATUS":-1/-2/0/100
+		}
 
-	GET={
+		{"HEAD":"GET",
 		 "CMD":"DELETE",
 		 "ID": id,
 	 	 "PIN": [pin1, pin2],	
 		}
 
-	+++GET={ 
-			 "CMD":"DELETE",
-			 "ID": id,
-			 "STATUS":-1/-2/0/100
-			}
+		{ "HEAD":"+++GET",
+		 "CMD":"DELETE",
+		 "ID": id,
+		 "STATUS":-1/-2/0/100
+		}
 
 POST command:
-	POST={
-			"CMD": "POST"
+		{	
+			"HEAD": "POST",
 			"ID": ID,
 			"PIN": [pin1, pin2],
 			"VALUE": [value1, value2]
 		}
-	+++POST={
-			"CMD": "POST"
-			"ID": ID
-			}
+		{
+			"HEAD": "+++POST",
+			"ID": ID,
+			"STATUS": -1/100
+		}
 */
 
 #include "../aJson/aJSON.h"
@@ -106,6 +107,16 @@ POST command:
 
 #define MAX_IDS		16
 
+#define enableSign()	do { \
+	digitalWrite(_signLed, HIGH); \
+	delay(100); \
+} while (0)
+
+#define disableSign()	do { \
+	digitalWrite(_signLed, LOW); \
+} while (0)
+
+
 class SensorItem{
 public:
 	/*
@@ -125,12 +136,12 @@ public:
 	/*
 	* description: read data from the certain sensor.
 	*/
-	virtual void read() {}
+	virtual int read() {}
 
 	/*
 	* description: write data to the certain sensor.
 	*/
-	virtual void write() {}
+	virtual int write() {}
 
 	/*
 	* description: get sensor value
@@ -242,6 +253,14 @@ public:
 	void setup(uint32_t baudrate);
 
 	/*
+	* description: Add the sensor to the sensor list.
+	* parameters: sensor: the pointer to the added sensor.       
+	* return: true: success
+	*         false: failed
+	*/	
+	bool addSensor(SensorItem *sensor);
+
+	/*
 	* description: If there is data in the RX com buffer, then it is available for SensorX to read from buffer.
 	* parameters: NONE.
 	* return: Serial.available()
@@ -280,23 +299,6 @@ public:
 	uint8_t getSensorNum(){ return _sensorNum; }	
 
 private:
-
-	/*
-	* description: Create a new sensor item and initialize it.
-	* parameters: pin: sensor pin
-	*             type: sensor type
-	*             val_type: the value type of the sensor
-	* return: the pointer of the new sensor item
-	*/	
-	SensorItem* newSensor(uint8_t pin, uint8_t type, uint8_t val_type);
-
-	/*
-	* description: Add the sensor to the sensor list.
-	* parameters: sensor: the pointer to the added sensor.       
-	* return: true: success
-	*         false: failed
-	*/	
-	bool addSensor(SensorItem *sensor);
 
 	/*
 	* description: Delete the sensor plug in the "pin".
@@ -375,6 +377,7 @@ private:
 	HardwareSerial *_com;
 	uint8_t _post[MAX_IDS];
 	aJsonObject *_aJson;
+	const int _signLed = 13;
 };
 
 #endif

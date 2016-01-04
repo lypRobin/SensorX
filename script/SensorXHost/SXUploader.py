@@ -38,6 +38,7 @@ def sx_avr_uploader(host, port, hex_dir):
 	port = '%d' % port
 	cmd = 'avrdude -v -c avrisp -p m328p -P net:' + host + ':' + port + ' -F -U flash:w:' + hex_dir + ':i'
 	print "Uploading......"
+	print host, port, hex_dir
 	try:
 		p = subprocess.Popen(cmd, shell=True, stdout = subprocess.PIPE, stderr= subprocess.STDOUT)
 		res = '0'

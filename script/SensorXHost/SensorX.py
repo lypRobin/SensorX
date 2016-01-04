@@ -20,7 +20,7 @@
 from telnetlib import Telnet
 import time
 
-class SensorX(Object):
+class SensorX():
 
 	def __init__(self, addr):
 
@@ -28,7 +28,7 @@ class SensorX(Object):
 		self._address = addr
 		self._isconnected = False
 
-		self._mode = "3"
+		self._mode = ""
 		self._ip = ""
 		self._sta_ssid = ""
 		self._sta_hostname = ""
@@ -107,7 +107,6 @@ class SensorX(Object):
 			print "[Error]: Invalid SensorX ip address."
 		try:
 			self._conn = Telnet(self._address[0], self._address[1], 3)
-			print "hahaha"
 			if not self._conn.read_until("welcome", 3):
 				print "[Error]: Connect to SensorX failed."
 				return False
@@ -314,6 +313,17 @@ class SensorX(Object):
 				print "[Error]: Reset SensorX failed."
 				return False
 
+		except:
+			print "[Error]: Communicate to SensorX failed."
+			return False
+		return True
+
+
+	def reset_sensorx(self):
+		if not self._isconnected:
+			print "[Error]: SensorX is not connected."
+			return False
+		try:
 			self._conn.write("+++AT RESET")  #reset esp8266
 			if not self._conn.read_until("OK", 3):
 				print "[Error]: Reset SensorX failed."
